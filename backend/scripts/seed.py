@@ -153,6 +153,10 @@ def main() -> None:
     t0 = time.time()
     db = SessionLocal()
     try:
+        # ---- serialize concurrent seed runs (two seeds truncating each other
+        #      mid-flight corrupt FK relationships) ---------------------------
+        db.execute(text("SELECT pg_advisory_lock(77001337)"))
+
         # ---- idempotent reset: old/thin data is wiped wholesale -------------------
         tables = ", ".join(f'"{t}"' for t in Base.metadata.tables)
         db.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
