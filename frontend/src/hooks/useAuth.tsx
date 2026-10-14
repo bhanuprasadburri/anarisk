@@ -29,11 +29,14 @@ interface AuthContextType {
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   administrator: ['*'],
   investigator: [
-    'dashboard:read', 'entity:read', 'entity:analyze', 'evidence:read', 'evidence:write',
+    'dashboard:read', 'entity:read', 'entity:submit', 'entity:analyze', 'evidence:read', 'evidence:write',
     'graph:read', 'case:read', 'case:create', 'case:triage', 'case:assign', 'case:escalate',
     'case:resolve', 'case:note', 'audit:read', 'brand:read', 'connector:run', 'url:inspect',
   ],
-  brand_owner: ['dashboard:read', 'entity:read', 'graph:read', 'case:read', 'brand:read', 'evidence:read'],
+  brand_owner: [
+    'dashboard:read', 'entity:read', 'entity:submit', 'graph:read', 'case:read',
+    'brand:read', 'brand:write', 'evidence:read', 'evidence:write',
+  ],
   partner: ['dashboard:read', 'case:read', 'evidence:read'],
 };
 

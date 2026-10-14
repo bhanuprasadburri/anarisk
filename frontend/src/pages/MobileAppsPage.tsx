@@ -313,12 +313,12 @@ export const MobileAppsPage: React.FC = () => {
     setFieldErrors({});
     setFormError(null);
     try {
-      const res = (await monitoringService.addApp({
+      const res = await monitoringService.addApp({
         brand_id: form.brand_id,
         package_id: form.package_id.trim(),
         store: form.store,
         store_url: form.store_url.trim() || undefined,
-      })) as unknown as { message?: string };
+      });
       toast.success(
         'Monitoring started',
         res?.message ||

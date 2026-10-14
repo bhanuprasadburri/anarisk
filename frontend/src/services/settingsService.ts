@@ -35,8 +35,8 @@ export const settingsService = {
   },
 
   /* ---- Workspace (organization) ---- */
-  async listOrganizations(): Promise<{ items: Organization[] }> {
-    return apiRequest(`/organizations`);
+  async listOrganizations(): Promise<Organization[]> {
+    return apiRequest<Organization[]>(`/organizations`);
   },
 
   async getOrganization(orgId: string): Promise<Organization> {
@@ -51,8 +51,8 @@ export const settingsService = {
   },
 
   /* ---- Roles catalog ---- */
-  async listRoles(): Promise<Record<string, string[]>> {
-    return apiRequest(`/users/roles`);
+  async listRoles(): Promise<Array<{ role: string; permissions: string[] }>> {
+    return apiRequest<Array<{ role: string; permissions: string[] }>>(`/users/roles`);
   },
 
   /* ---- Audit trail (Settings → Security) ---- */

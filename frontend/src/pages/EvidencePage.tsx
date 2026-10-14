@@ -48,20 +48,7 @@ import {
   InvestigationCase,
 } from '../types';
 
-/* ------------------------------------------------------------------ *
- * Local row shape: the API returns richer fields than EvidenceListItem
- * (title, size_bytes, content_type, metadata …) so they are declared here.
- * ------------------------------------------------------------------ */
-interface EvidenceRow extends EvidenceListItem {
-  title?: string | null;
-  source_url?: string | null;
-  provenance?: string | null;
-  content_type?: string | null;
-  size_bytes?: number | null;
-  has_file?: boolean;
-  collected_at?: string;
-  metadata?: Record<string, unknown> | null;
-}
+type EvidenceRow = EvidenceListItem;
 
 interface EntityPick {
   id: string;
@@ -1029,8 +1016,8 @@ export const EvidencePage: React.FC = () => {
         }
       />
       <KeyValue label="Perceptual hash" value={row.perceptual_hash ? <code className="font-mono text-[12px]">{row.perceptual_hash}</code> : <span className="text-faint">—</span>} />
-      <KeyValue label="MIME type" value={row.content_type || row.mime_type || <span className="text-faint">—</span>} />
-      <KeyValue label="Size" value={formatSize(row.size_bytes ?? row.file_size)} />
+      <KeyValue label="MIME type" value={row.content_type || <span className="text-faint">—</span>} />
+      <KeyValue label="Size" value={formatSize(row.size_bytes)} />
       <KeyValue label="Created" value={formatDate(row.created_at)} />
       <KeyValue
         label="Evidence ID"

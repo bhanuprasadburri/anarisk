@@ -593,10 +593,7 @@ export const RiskGraphPage: React.FC = () => {
   const rebuildGraph = useCallback(async () => {
     setRebuilding(true);
     try {
-      const res = await apiRequest<{ node_count: number; edge_count: number; cluster_count: number }>(
-        '/graph/rebuild',
-        { method: 'POST', body: JSON.stringify(brandId ? { brand_id: brandId } : {}) }
-      );
+      const res = await graphService.rebuild(brandId || undefined);
       toast.success(
         'Relationship graph rebuilt',
         `${res.edge_count} relationships across ${res.node_count} entities (${res.cluster_count} clusters).`
@@ -623,10 +620,7 @@ export const RiskGraphPage: React.FC = () => {
     setClustersError(null);
     try {
       const res = await graphService.getClusters({ brand_id: brandId });
-      const list: ClusterSummary[] = Array.isArray(res as unknown)
-        ? (res as unknown as ClusterSummary[])
-        : res.items || [];
-      setClusters(list);
+      setClusters(res);
     } catch (err) {
       setClustersError(err instanceof Error ? err.message : 'Failed to load clusters.');
     } finally {

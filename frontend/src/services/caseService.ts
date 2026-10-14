@@ -6,7 +6,7 @@ export interface CaseListParams {
   status?: string[];
   severity?: string[];
   brand_id?: string;
-  assigned_to?: string;
+  assignee_id?: string;
   page?: number;
   page_size?: number;
   sort?: string;
@@ -26,8 +26,7 @@ export const caseService = {
     brand_id: string;
     title: string;
     summary?: string;
-    severity?: string;
-    entity_ids?: string[];
+    entity_ids: string[];
   }): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases`, { method: 'POST', body: JSON.stringify(payload) });
   },
@@ -55,13 +54,18 @@ export const caseService = {
   ): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases/${caseId}/status`, {
       method: 'POST',
-      body: JSON.stringify({ to_status, note, resolution_outcome, resolution_summary }),
+      body: JSON.stringify({
+        status: to_status,
+        comment: note,
+        resolution_outcome,
+        resolution_summary,
+      }),
     });
   },
 
   async assign(
     caseId: string,
-    assignee_id: string | null,
+    assignee_id: string,
     note?: string
   ): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases/${caseId}/assign`, {
@@ -87,10 +91,7 @@ export const caseService = {
     });
   },
 
-  async resolve(
-    caseId: string,
-    payload: { resolution_outcome: string; resolution_summary?: string; note?: string }
-  ): Promise<InvestigationCase> {
+  async resolve(caseId: string, payload: { outcome: string; summary: string }): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases/${caseId}/resolve`, {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -100,15 +101,15 @@ export const caseService = {
   async linkEntity(caseId: string, entity_id: string, role?: string): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases/${caseId}/entities`, {
       method: 'POST',
-      body: JSON.stringify({ entity_id, role }),
+      body: JSON.stringify([{ entity_id, role: role || 'related' }]),
     });
   },
 
-  async listAssignableUsers(): Promise<{ items: CaseUserRef[] }> {
-    return apiRequest(`/users/assignable`);
+  async listAssignableUsers(): Promise<CaseUserRef[]> {
+    return apiRequest<CaseUserRef[]>(`/users/assignable`);
   },
 
-  async getWorkflow(): Promise<Record<string, string[]>> {
-    return apiRequest<Record<string, string[]>>(`/cases/workflow`);
+  async getWorkflow(): Promise<{ transitions: Record<string, string[]> }> {
+    return apiRequest<{ transitions: Record<string, string[]> }>(`/cases/workflow`);
   },
 };

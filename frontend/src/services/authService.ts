@@ -15,15 +15,11 @@ export const authService = {
     email: string;
     password: string;
     full_name: string;
-  }): Promise<AuthResponse> {
-    const res = await apiRequest<AuthResponse>('/auth/register', {
+  }): Promise<CurrentUser> {
+    return apiRequest<CurrentUser>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-    if (res.access_token) {
-      localStorage.setItem('nimbus_auth_token', res.access_token);
-    }
-    return res;
   },
 
   async getCurrentUser(): Promise<CurrentUser> {

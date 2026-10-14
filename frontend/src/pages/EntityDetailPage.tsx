@@ -387,7 +387,7 @@ export const EntityDetailPage: React.FC = () => {
       guard('related', async () => {
         const res = await graphService.getRelated(id);
         setRelatedFallback(
-          (res.items || []).map((r) => {
+          res.map((r) => {
             const node = r.entity as GraphNode & { display_name?: string };
             return {
               id: node.id,
@@ -576,7 +576,7 @@ export const EntityDetailPage: React.FC = () => {
       className: 'min-w-[220px]',
       cell: (ev) => (
         <span className="block max-w-[380px] truncate text-[13px] text-ink-700">
-          {ev.description || ev.file_name || (ev.text_content ? truncate(ev.text_content, 80) : ev.url || '—')}
+          {ev.description || ev.file_name || (ev.text_content ? truncate(ev.text_content, 80) : ev.source_url || '—')}
         </span>
       ),
     },

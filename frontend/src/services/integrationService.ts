@@ -13,8 +13,8 @@ export const integrationService = {
     });
   },
 
-  async disconnect(key: string): Promise<{ status: string }> {
-    return apiRequest(`/integrations/${key}/disconnect`, { method: 'POST', body: JSON.stringify({}) });
+  async disconnect(key: string): Promise<IntegrationProvider> {
+    return apiRequest<IntegrationProvider>(`/integrations/${key}/disconnect`, { method: 'POST', body: JSON.stringify({}) });
   },
 
   async test(key: string): Promise<IntegrationTestResult> {

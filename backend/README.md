@@ -46,49 +46,61 @@ uvicorn app.main:app --reload   # http://localhost:8000
 | Email | Role | Password |
 |---|---|---|
 | `admin@nimbus.example` | administrator | `BOOTSTRAP_ADMIN_PASSWORD` (default `ChangeMe-Admin-123`) |
-| `investigator@nimbus.example`, `investigator2@nimbus.example` | investigator | `Demo-Passw0rd!` |
+| `investigator@nimbus.example`, `investigator2@nimbus.example`, `analyst@nimbus.example` | investigator | `Demo-Passw0rd!` |
 | `owner@nimbus.example` | brand_owner | `Demo-Passw0rd!` |
 | `partner@nimbus.example` | partner | `Demo-Passw0rd!` |
-| `outsider@nimbus.example` | investigator in a *different* organization (isolation demo) | `Demo-Passw0rd!` |
 
-The seed builds a synthetic brand, official references (incl. a generated logo), lookalike profiles/site/app with
-evidence images, discovered graph relationships, risk assessments and one escalated cluster case (`NN-2026-000001`),
-following the 3-minute demo flow in the documentation.
+Cross-organization isolation is covered by the test suite (an outsider's investigator in a second organization gets
+404s for every resource of the first).
+
+The seed builds a synthetic brand with official references (incl. a generated logo), lookalike profiles/sites/apps with
+evidence images and text, discovered graph relationships, risk assessments, cases across the workflow (incl. one
+escalated partner handoff), notifications, monitored app-store packages and a *not_configured* integration catalog,
+following the 3-minute demo flow in the documentation. It is idempotent: re-running it truncates and rebuilds the demo
+data. **All integration credentials are intentionally left unconfigured** — connect them from the UI to see them work.
 
 ## Tests
 ```bash
-pytest                      # 182 tests, ~35 s; uses TEST_DATABASE_URL (database name MUST end in "_test")
+pytest                      # 286 tests, ~3 min; uses TEST_DATABASE_URL (database name MUST end in "_test")
 ```
 The suite builds its schema with the real Alembic migrations, truncates tables between tests, uploads to a temp dir and
-refuses to run against a database whose name does not end in `_test`. It covers auth/JWT, RBAC, tenant isolation,
-ingestion/dedup, every detector, scoring/confidence, evidence upload validation, SSRF defences (incl. a real-socket test),
-graph/clustering, the case workflow (incl. a concurrent-request race), dashboard aggregation, audit, migrations
-(round-trip + model/migration drift check) and error handling.
+refuses to run against a database whose name does not end in `_test`. It covers auth/JWT (incl. forgot/reset/change
+password flows), RBAC, tenant isolation, ingestion/dedup, every detector, scoring/confidence, evidence upload validation
+(inc. hash verification and case linking), SSRF defences (incl. a real-socket test), graph/clustering, the case workflow
+(inc. a concurrent-request race, PATCH optimistic concurrency and admin-only delete), dashboard aggregation, audit,
+notifications, integrations (encryption at rest, honest test/sync), app monitoring, reports + CSV exports, the detections
+feed, migrations (round-trip + model/migration drift check) and error handling.
 
 ## Architecture
 ```
 app/
   main.py                    app factory, CORS, security headers, health/ready
   core/    config.py permissions.py security.py errors.py rate_limit.py context.py
-  api/     deps.py  v1/{auth,users,brands,collection,entities,evidence,detection,graph,cases,dashboard,audit}.py   (thin handlers)
-  services/                  business logic: ingestion, analysis, scoring, graph, cases, dashboard, audit, url_inspector, connectors/
+  api/     deps.py  v1/{auth,users,brands,collection,entities,evidence,detection,graph,cases,dashboard,audit,
+                        notifications,integrations,monitoring,reports}.py   (thin handlers)
+  services/                  business logic: ingestion, analysis, scoring, graph, cases, dashboard, audit, notifications,
+                             case_notify, url_inspector, crypto_utils, evidence, monitoring, reports, connectors/
     detection/               brand_logo.py impersonation.py url_risk.py behavior.py  + common.py (shared evidence helpers)
   repositories/              access.py (org/brand scoping)  entities.py (filtered queries)
   models/ schemas/ db/ utils/ (text, urls, images)
-alembic/versions/0001_initial_schema.py     scripts/seed.py     tests/
+alembic/versions/20261011_0001_initial_schema.py  20261013_0002_notifications_integrations_monitoring.py     scripts/seed.py     tests/
 ```
 Detectors implement one tiny protocol (`run(ctx) -> SignalResult`) and are registered in `services/detection/__init__.py`;
 connectors implement `SourceConnector` (`services/connectors/base.py`) — both are swappable without touching routes.
 
-### Data model (18 tables)
-`organizations, users` · `brands, brand_references` (official name/handle/domain/app package/publisher/bio/image+pHash) ·
+### Data model (23 tables)
+`organizations, users` (incl. JSONB `preferences`) · `brands, brand_references` (official name/handle/domain/app package/publisher/bio/image+pHash) ·
 `data_sources, collection_records` (one row per ingestion event, raw payload kept) · `digital_entities` (social profile,
-website, domain, image, mobile app; unique per brand+type+canonical id) · `evidence_records` · `risk_assessments`
+website, domain, image, mobile app; unique per brand+type+canonical id) · `evidence_records` (entity link optional — evidence
+can outlive an unlink; SHA-256 + perceptual hash + verification status) · `risk_assessments`
 (**immutable history**: model version, configured + effective weights, component scores, risk, confidence + breakdown,
 thresholds) · `detection_signals` (per assessment: type, status, score, explanation, evidence refs, metadata) ·
 `entity_relationships` (undirected edge: type, confidence, evidence ref/note, timestamps; CHECK constraints for canonical
 order / no self-loops / ranges) · `investigation_cases, case_entities, case_assignments` (history; partial unique index = one
-open owner), `case_notes, case_events` (append-only status history), `case_escalations` (partner handoffs) · `audit_logs`.
+open owner), `case_notes, case_events` (append-only status history), `case_escalations` (partner handoffs),
+`case_evidence` (explicit evidence↔case links with role) · `notifications` (in-app, per user) · `password_reset_tokens`
+(SHA-256 hashed, single-use, 30-minute expiry) · `integration_configs` (per-organization provider settings, encrypted at
+rest with Fernet) · `monitoring_targets` (store packages watched per brand) · `audit_logs`.
 
 ## Detection engine (explainable, four independent families)
 Each signal returns: type, **score ∈ [0,1] or null**, `status` (`ok | unavailable | failed`), evidence refs, a human-readable
@@ -197,6 +209,8 @@ errors are `{"error":{"code","message","details"}}`, auth is `Authorization: Bea
 | POST | `/api/v1/cases` | Create a case (initial status DETECTED). Send Idempotency-Key to make retries safe. |
 | GET | `/api/v1/cases/workflow` | Configured workflow transitions |
 | GET | `/api/v1/cases/{case_id}` | Case detail: evidence, signals, linked entities, notes, status history, escalations |
+| PATCH | `/api/v1/cases/{case_id}` | Edit title / summary / severity (`case:triage`). Send `version` for optimistic concurrency → 409 `version_conflict` on conflict. |
+| DELETE | `/api/v1/cases/{case_id}` | Delete a case (administrators only). Notes/events/links cascade; entities and evidence are kept. |
 | POST | `/api/v1/cases/{case_id}/assign` | Assign or reassign the owner (UNDER_REVIEW -> ASSIGNED automatically) |
 | GET | `/api/v1/cases/{case_id}/assignments` | Assignments |
 | POST | `/api/v1/cases/{case_id}/entities` | Link more entities to an open case |
@@ -221,6 +235,14 @@ errors are `{"error":{"code","message","details"}}`, auth is `Authorization: Bea
 | GET | `/api/v1/detection/model` | Active scoring model: version, weights, thresholds, confidence formula |
 | GET | `/api/v1/detection/signals` | Signal results (latest assessment per entity unless latest_only=false) |
 
+**Detections feed** (flattened latest-assessment-per-entity view used by the web app's detection screens)
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/detections` | Feed items with `entity`, `detection_type`, `signals_summary` and `status` (analyzed\|partial\|unavailable); filters `q/severity/entity_type/brand_id/status/provenance/from/to`; sort `risk_score\|confidence\|assessed_at` |
+| GET | `/api/v1/detections/{assessment_id}` | Full assessment behind a detection (same shape as `/detection/assessments/{id}`) |
+| POST | `/api/v1/detections/{assessment_id}/re-analyze` | Re-run the four detection families on the assessment's entity; returns the NEW assessment (history is preserved) |
+
 **Digital Entities**
 
 | Method | Path | Description |
@@ -233,6 +255,7 @@ errors are `{"error":{"code","message","details"}}`, auth is `Authorization: Bea
 | GET | `/api/v1/entities/{entity_id}/cases` | Cases this entity is part of |
 | GET | `/api/v1/entities/{entity_id}/evidence` | Entity Evidence |
 | POST | `/api/v1/entities/{entity_id}/inspect-url` | SSRF-guarded live URL inspection (disabled unless URL_FETCH_ENABLED=true); stores metadata as evidence |
+| DELETE | `/api/v1/entities/{entity_id}` | Delete an entity (administrators only) and its stored evidence files; relationships and case history are kept/cascaded in the database |
 
 **Digital Surface Collection**
 
@@ -245,11 +268,16 @@ errors are `{"error":{"code","message","details"}}`, auth is `Authorization: Bea
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/evidence` | List  |
+| GET | `/api/v1/evidence` | List evidence: filters `entity_id, kind, case_id (entity-linked or directly attached), verification_status (verified\|mismatch\|pending), q`; sort `created_at\|collected_at\|title\|size_bytes` |
 | POST | `/api/v1/evidence` | Attach text/URL/WHOIS/other evidence metadata to an entity |
 | POST | `/api/v1/evidence/upload` | Upload an image/screenshot (PNG/JPEG/WEBP/GIF, content-validated, size-limited) |
-| GET | `/api/v1/evidence/{evidence_id}` | Get |
+| GET | `/api/v1/evidence/export/csv` | CSV export of every evidence record in your scope (attachment download; same filters as the list) |
+| GET | `/api/v1/evidence/{evidence_id}` | Evidence detail incl. case links and verification status |
 | GET | `/api/v1/evidence/{evidence_id}/file` | Download the stored image (served as an attachment with nosniff) |
+| POST | `/api/v1/evidence/{evidence_id}/verify` | Recompute the sha256 of the stored bytes and record verified/mismatch (honest, no fabrication) |
+| POST | `/api/v1/evidence/{evidence_id}/link` | Link this evidence to a case and/or (re)attach it to an entity |
+| DELETE | `/api/v1/evidence/{evidence_id}/link/{case_id}` | Remove the case link (the evidence itself is kept) |
+| DELETE | `/api/v1/evidence/{evidence_id}` | Delete evidence (administrators and investigators; removes the stored file too) |
 
 **Health**
 
@@ -324,7 +352,7 @@ provenance=synthetic until a real store integration is configured)
 | GET | `/api/v1/reports/overview` | Totals, threat distribution, cases by status, daily risk trend, entities-at-risk by channel, top connected entities, mobile apps, evidence, `data_notes` (`dashboard:read`) |
 | GET | `/api/v1/reports/export/csv` | CSV attachment: `report=threats\|cases\|entities\|apps\|evidence` (`entity:read`/`case:read`/`evidence:read`) |
 
-_Total: 62 operations._
+_Total: 97 operations._
 
 ## Known limitations
 * No live collection, no scraping, no real app-store/social integrations (abstractions + synthetic sample only). Private/closed surfaces are out of scope by design.
@@ -334,4 +362,4 @@ _Total: 62 operations._
 * Discovery compares up to 200 most-recent entities per brand (O(n²)); coordination analysis compares against up to 500 peers.
 * In-memory rate limiting is per process. Uploaded files live on local disk. HS256 JWTs, no refresh tokens/revocation list (deactivate the user to cut access).
 * Dockerfile/docker-compose were written and syntax-checked but **not executed** in the authoring environment (no Docker available there); the native
-  PostgreSQL path (migrations, seed, server, 182 tests) was executed.
+  PostgreSQL path (migrations, seed, server, 286 tests) was executed.

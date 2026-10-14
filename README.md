@@ -121,7 +121,7 @@ npm run dev
 ```
 
 Frontend dev server:
-- http://localhost:5173
+- http://localhost:3000
 
 ## Demo accounts
 

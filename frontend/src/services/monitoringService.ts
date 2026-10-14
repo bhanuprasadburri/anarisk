@@ -1,5 +1,5 @@
 import { apiRequest, qs } from './apiClient';
-import { MonitoringSyncResult, MonitoringTarget, PaginatedResponse, DigitalEntity } from '../types';
+import { MonitoringCreateResult, MonitoringSyncResult, MonitoringTarget, PaginatedResponse } from '../types';
 
 export interface MonitoringListParams {
   q?: string;
@@ -22,8 +22,8 @@ export const monitoringService = {
     package_id: string;
     store: string;
     store_url?: string;
-  }): Promise<MonitoringTarget> {
-    return apiRequest<MonitoringTarget>(`/monitoring/apps`, {
+  }): Promise<MonitoringCreateResult> {
+    return apiRequest<MonitoringCreateResult>(`/monitoring/apps`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });

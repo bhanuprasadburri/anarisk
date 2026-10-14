@@ -115,17 +115,24 @@ export interface DigitalEntity {
 
 export interface EvidenceRecord {
   id: string;
+  brand_id: string;
   entity_id?: string | null;
   kind: EvidenceKind;
+  title: string;
   description?: string | null;
-  text_content?: string | null;
+  source_url?: string | null;
+  provenance: Provenance;
+  content_type?: string | null;
   sha256?: string | null;
+  size_bytes?: number | null;
   perceptual_hash?: string | null;
+  has_file: boolean;
   file_name?: string | null;
-  file_size?: number | null;
-  mime_type?: string | null;
-  url?: string | null;
-  raw_payload?: Record<string, any> | null;
+  text_content?: string | null;
+  metadata: Record<string, unknown>;
+  verification_status: 'verified' | 'mismatch' | 'pending';
+  case_ids: string[];
+  collected_at: string;
   created_at: string;
 }
 
@@ -406,7 +413,7 @@ export interface MonitoringTarget {
     severity: Severity;
     confidence: number | null;
     provenance: Provenance;
-    last_seen_at: string;
+    last_seen_at: string | null;
     source_url?: string | null;
   } | null;
   last_sync_at?: string | null;
@@ -415,7 +422,12 @@ export interface MonitoringTarget {
 
 export interface MonitoringSyncResult {
   target: MonitoringTarget;
-  entity: DigitalEntity;
+  entity: Record<string, unknown> | null;
+  message: string;
+}
+
+export interface MonitoringCreateResult {
+  target: MonitoringTarget;
   message: string;
 }
 
@@ -444,8 +456,10 @@ export interface DetectionItem {
 export interface DetectionModelInfo {
   model_version: string;
   weights: Record<string, number>;
-  thresholds: Record<string, number>;
+  severity_thresholds: Record<string, number>;
+  confidence: Record<string, unknown>;
   rule_description?: Array<{ signal_type: string; label: string; rules: string }>;
+  status?: string;
 }
 
 export interface EvidenceVerificationResult {

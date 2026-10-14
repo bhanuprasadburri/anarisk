@@ -5,6 +5,7 @@ import {
   EvidenceListItem,
   EvidenceRecord,
   EvidenceVerificationResult,
+  EvidenceKind,
   PaginatedResponse,
 } from '../types';
 
@@ -32,21 +33,33 @@ export const evidenceService = {
   },
 
   async createEvidence(payload: {
-    kind: string;
-    entity_id?: string;
+    entity_id: string;
+    kind: Extract<EvidenceKind, 'text' | 'url' | 'whois' | 'url_inspection' | 'other'>;
+    title: string;
     description?: string;
+    source_url?: string;
     text_content?: string;
-    url?: string;
+    provenance?: 'manual' | 'synthetic';
+    metadata?: Record<string, unknown>;
+    collected_at?: string;
   }): Promise<EvidenceRecord> {
     return apiRequest<EvidenceRecord>(`/evidence`, { method: 'POST', body: JSON.stringify(payload) });
   },
 
-  async uploadEvidence(file: File, payload: { kind?: string; entity_id?: string; description?: string } = {}): Promise<EvidenceRecord> {
+  async uploadEvidence(file: File, payload: {
+    entity_id: string;
+    title: string;
+    kind?: 'screenshot' | 'image';
+    description?: string;
+    provenance?: 'manual' | 'synthetic';
+  }): Promise<EvidenceRecord> {
     const form = new FormData();
     form.append('file', file);
+    form.append('entity_id', payload.entity_id);
+    form.append('title', payload.title);
     if (payload.kind) form.append('kind', payload.kind);
-    if (payload.entity_id) form.append('entity_id', payload.entity_id);
     if (payload.description) form.append('description', payload.description);
+    if (payload.provenance) form.append('provenance', payload.provenance);
     return apiRequest<EvidenceRecord>(`/evidence/upload`, { method: 'POST', body: form });
   },
 

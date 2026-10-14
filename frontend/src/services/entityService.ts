@@ -49,16 +49,6 @@ export const entityService = {
     return apiRequest(`/entities`, { method: 'POST', body: JSON.stringify(payload) });
   },
 
-  async updateEntity(
-    entityId: string,
-    payload: { display_name?: string; source_url?: string; attributes?: Record<string, unknown> }
-  ): Promise<DigitalEntity> {
-    return apiRequest<DigitalEntity>(`/entities/${entityId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
-  },
-
   async deleteEntity(entityId: string): Promise<void> {
     await apiRequest(`/entities/${entityId}`, { method: 'DELETE' });
   },
@@ -71,12 +61,12 @@ export const entityService = {
     return apiRequest<PaginatedResponse<RiskAssessment>>(`/entities/${entityId}/assessments`);
   },
 
-  async getEvidence(entityId: string): Promise<PaginatedResponse<EvidenceRecord>> {
-    return apiRequest<PaginatedResponse<EvidenceRecord>>(`/entities/${entityId}/evidence`);
+  async getEvidence(entityId: string): Promise<EvidenceRecord[]> {
+    return apiRequest<EvidenceRecord[]>(`/entities/${entityId}/evidence`);
   },
 
-  async getCases(entityId: string): Promise<PaginatedResponse<InvestigationCase>> {
-    return apiRequest<PaginatedResponse<InvestigationCase>>(`/entities/${entityId}/cases`);
+  async getCases(entityId: string): Promise<Array<Pick<InvestigationCase, 'id' | 'case_number' | 'title' | 'status' | 'severity'>>> {
+    return apiRequest(`/entities/${entityId}/cases`);
   },
 
   async inspectUrl(entityId: string, url: string): Promise<Record<string, unknown>> {

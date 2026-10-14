@@ -473,7 +473,7 @@ export const ThreatIntelPage: React.FC = () => {
   /* ---------------- Model-based tabs ---------------- */
   const ruleDescriptions = model?.rule_description || [];
   const weights = model?.weights || {};
-  const thresholds = model?.severity_thresholds || model?.thresholds || null;
+  const thresholds = model?.severity_thresholds || null;
   const confidenceInfo = model?.confidence;
 
   const renderModelBody = (variant: 'signals' | 'model') => {
