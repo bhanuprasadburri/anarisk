@@ -8,7 +8,7 @@ or live API/browser check, not by inspection alone._
 | Item | Status | Evidence |
 |---|---|---|
 | PostgreSQL (portable, local) for tests + fallback | ✅ | `TEST_DATABASE_URL` → local `nimbus_test`; local `nimbus` also seeded as fallback (40 entities / 14 cases) |
-| Supabase PostgreSQL (project dev database) | ✅ | `DATABASE_URL` → Supabase (PostgreSQL 17.11, SSL). A DNS outage on the local network made it unreachable for part of the build; connectivity recovered and the DB was re-seeded |
+| Supabase PostgreSQL (project dev database) | ✅ | `DATABASE_URL` → Supabase (PostgreSQL 17.11, SSL). A local DNS outage made it unreachable mid-build; after connectivity recovered the complete seeded dataset was restored via `pg_dump`/`psql` from the local database (the environment repeatedly killed the long-running seed process). Verified counts: 40 entities / 100 assessments / 60 relationships / 14 cases / 24 evidence / 88 notifications / 6 monitoring targets |
 | Migrations 0001 + 0002 (24 tables) | ✅ | Applied on both DBs; notifications, integrations, monitoring targets, password-reset tokens, case↔evidence links included |
 | Seed data | ✅ | `python -m scripts.seed` → 1 org, 6 users, 3 brands, 40 entities (14 social / 10 website / 6 domain / 6 mobile app / 4 image; 6 manual + 34 synthetic), 100 assessments, 60 relationships, 14 cases across all 6 statuses, 24 evidence, 88 notifications, 6 monitoring targets. All synthetic data is labeled as such |
 

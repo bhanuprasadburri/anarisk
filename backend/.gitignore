@@ -6,4 +6,5 @@ venv/
 uploads/*
 !uploads/.gitkeep
 .pytest_cache/
+_pytest_out.txt
 *.egg-info/

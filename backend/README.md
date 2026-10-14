@@ -1,5 +1,8 @@
 # Nimbus Ninjas — Digital Risk Protection Platform (backend)
 
+This directory is a standalone FastAPI project. Its migrations, Docker setup, tests,
+environment template, and application code are self-contained here.
+
 FastAPI + PostgreSQL backend implementing the four-layer design from the project documentation:
 
 **Digital Surface Collection → Detection Engine → Risk Graph → Explainable Case Review → Response & Resolution**
@@ -363,3 +366,17 @@ _Total: 97 operations._
 * In-memory rate limiting is per process. Uploaded files live on local disk. HS256 JWTs, no refresh tokens/revocation list (deactivate the user to cut access).
 * Dockerfile/docker-compose were written and syntax-checked but **not executed** in the authoring environment (no Docker available there); the native
   PostgreSQL path (migrations, seed, server, 286 tests) was executed.
+
+## Publish as a separate GitHub repository
+
+Create an empty GitHub repository, then run these commands from this directory:
+
+```bash
+git init -b main
+git add .
+git commit -m "Initial backend project"
+git remote add origin https://github.com/YOUR-USER/YOUR-BACKEND-REPO.git
+git push -u origin main
+```
+
+The `.env` file, virtual environments, and uploaded files are excluded by `.gitignore`.
