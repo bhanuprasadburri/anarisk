@@ -137,3 +137,60 @@ def test_decode_rejects_wrong_type(f):
     tok = jwt.encode({"sub": "x", "exp": 9999999999, "iat": 1, "typ": "refresh"}, "test-secret-key-test-secret-key-0123456789", algorithm="HS256")
     with pytest.raises(UnauthorizedError):
         decode_access_token(tok)
+
+
+def test_login_db_failure_returns_generic_500_and_logs_traceback(client, f, monkeypatch, caplog):
+    """A database outage during login must surface as the uniform generic internal_error to the
+    client while the FULL traceback is preserved server-side — and never the password."""
+    import logging
+
+    import app.services.users as users_svc
+
+    u = f.user(UserRole.INVESTIGATOR, f.org())
+
+    def _outage(db, email, password):
+        raise RuntimeError("simulated database outage")
+
+    monkeypatch.setattr(users_svc, "authenticate", _outage)
+    with caplog.at_level(logging.ERROR):
+        r = client.post("/api/v1/auth/login", json={"email": u.email, "password": PASSWORD})
+    assert r.status_code == 500
+    body = r.json()
+    assert body["error"]["code"] == "internal_error" and body["error"]["message"] == "Internal server error"
+    # generic to the client, full detail in the server log
+    assert "simulated database outage" not in r.text
+    assert "simulated database outage" in caplog.text and "RuntimeError" in caplog.text
+    assert PASSWORD not in caplog.text
+
+
+def test_login_token_creation_failure_is_generic_500(client, f, monkeypatch, caplog):
+    """If JWT signing fails AFTER the password checked out, the client still gets the anonymous
+    500; the traceback lands in the server log with no credential material in either."""
+    import logging
+
+    import app.services.users as users_svc
+
+    u = f.user(UserRole.INVESTIGATOR, f.org())
+
+    def _signer_down(user_id, **kwargs):
+        raise RuntimeError("jwt signer unavailable")
+
+    monkeypatch.setattr(users_svc, "create_access_token", _signer_down)
+    with caplog.at_level(logging.ERROR):
+        r = client.post("/api/v1/auth/login", json={"email": u.email, "password": PASSWORD})
+    assert r.status_code == 500 and r.json()["error"]["code"] == "internal_error"
+    assert "jwt signer unavailable" not in r.text
+    assert "jwt signer unavailable" in caplog.text and "RuntimeError" in caplog.text
+    assert PASSWORD not in caplog.text
+
+
+def test_login_domain_errors_pass_through_unaffected(client, f, db):
+    """The safety net must not swallow domain outcomes: 401 indistinguishability and the
+    403 email_not_verified gate keep their exact codes/messages."""
+    u = f.user(UserRole.INVESTIGATOR, f.org())
+    u.email_verified_at = None
+    db.commit()
+    r = client.post("/api/v1/auth/login", json={"email": u.email, "password": PASSWORD})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "email_not_verified"
+    bad = client.post("/api/v1/auth/login", json={"email": u.email, "password": "Wrong-Passw0rd!"})
+    assert bad.status_code == 401 and bad.json()["error"]["code"] == "invalid_credentials"

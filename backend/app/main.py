@@ -38,8 +38,20 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        from urllib.parse import urlparse
+
         from app.services import scheduler
 
+        # Effective configuration snapshot — safe to print: the database URL is reduced to
+        # host/port/name (credentials never appear) and no secret values are logged. Makes
+        # production log shares diagnosable at a glance.
+        db = urlparse(s.database_url)
+        logging.getLogger("app").info(
+            "config: environment=%s email_provider=%s ai_provider=%s cors_origins=%s "
+            "db=%s:%s%s rate_limit=%s bcrypt_rounds=%s",
+            s.environment, s.email_provider, s.ai_provider, s.cors_origins,
+            db.hostname, db.port, db.path, s.rate_limit_enabled, s.bcrypt_rounds,
+        )
         scheduler.start()
         try:
             yield

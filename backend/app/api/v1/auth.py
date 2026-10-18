@@ -1,8 +1,11 @@
+import logging
+
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.errors import DomainError
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
 from app.models import User
@@ -13,7 +16,26 @@ from app.schemas.auth import (
 )
 from app.services import users as users_svc
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+def _authenticate_safely(db: Session, email: str, password: str) -> tuple[str, int]:
+    """Run the login check, converting unexpected failures into the uniform generic 500.
+
+    DomainError subclasses (401 invalid credentials, 403 email_not_verified, …) pass through
+    untouched. Anything else — a database outage, a broken JWT signer — is logged HERE with the
+    full server-side traceback (never the password) and returned to the client as the same
+    anonymous ``internal_error`` body the global handler produces.
+    """
+    try:
+        return users_svc.authenticate(db, email, password)
+    except DomainError:
+        raise
+    except Exception:
+        log.exception("Unexpected error during login (email=%s)", email)
+        raise DomainError("Internal server error", code="internal_error", status_code=500) from None
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit("register", "register_rate_limit_per_minute"))],
@@ -44,13 +66,13 @@ def resend_verification(body: ResendVerificationRequest, db: Session = Depends(g
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit("login", "login_rate_limit_per_minute"))], summary="Login with JSON credentials")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
-    token, expires = users_svc.authenticate(db, body.email, body.password)
+    token, expires = _authenticate_safely(db, body.email, body.password)
     return TokenResponse(access_token=token, expires_in=expires)
 
 
 @router.post("/token", response_model=TokenResponse, dependencies=[Depends(rate_limit("login", "login_rate_limit_per_minute"))], summary="OAuth2 password form (used by Swagger 'Authorize')")
 def token(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    token, expires = users_svc.authenticate(db, form.username, form.password)
+    token, expires = _authenticate_safely(db, form.username, form.password)
     return TokenResponse(access_token=token, expires_in=expires)
 
 

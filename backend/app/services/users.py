@@ -37,21 +37,27 @@ GENERIC_VERIFY_ERROR = "The code is incorrect or has expired. Request a new code
 
 
 def authenticate(db: Session, email: str, password: str) -> tuple[str, int]:
+    """Password check + session issue. Logs WHICH gate rejected the attempt (never the password
+    or hash) so a production log share pinpoints the failure without exposing credentials."""
     user = db.scalar(select(User).where(func.lower(User.email) == email.strip().lower()))
     if user is None:
+        log.info("login rejected: no account for email=%s", email.strip().lower())
         burn_password_check(password)
         raise UnauthorizedError(INVALID_LOGIN, code="invalid_credentials")
     if not verify_password(password, user.hashed_password):
+        log.warning("login rejected: bad password (user_id=%s)", user.id)
         audit.record(db, user, "auth.login_failed", "user", user.id)
         db.commit()
         raise UnauthorizedError(INVALID_LOGIN, code="invalid_credentials")
     if not user.is_active:
         # Same message as a bad password: do not reveal that the account exists but is disabled.
+        log.warning("login rejected: account inactive (user_id=%s)", user.id)
         raise UnauthorizedError(INVALID_LOGIN, code="invalid_credentials")
     if user.email_verified_at is None:
         # Only reached AFTER the password checked out, so this never confirms an account to
         # someone who does not already know the credentials. Accounts created through public
         # signup are not activated until their email OTP is confirmed.
+        log.info("login blocked: email not verified (user_id=%s)", user.id)
         raise ForbiddenError(
             "Your email address has not been verified yet. Enter the 6-digit code we sent you, "
             "or request a new one from the sign-in page.",
@@ -60,6 +66,7 @@ def authenticate(db: Session, email: str, password: str) -> tuple[str, int]:
     user.last_login_at = datetime.now(UTC)
     audit.record(db, user, "auth.login", "user", user.id)
     db.commit()
+    log.info("login succeeded (user_id=%s)", user.id)
     return create_access_token(user.id)
 
 
