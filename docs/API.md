@@ -1,11 +1,18 @@
-# Nimbus Ninjas — API Reference
+# AnaRisk — API Reference
 
 Generated from the live OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).
-Base URL: `http://localhost:8000/api/v1` — **97 endpoints** across 16 tags.
+Base URL: `http://127.0.0.1:8000` — **107 endpoints** across 18 tags.
 
 Authentication: `Authorization: Bearer <JWT>` (obtain via `POST /auth/login`).
 Role checks are enforced server-side per endpoint; unauthenticated requests return 401,
 missing permissions return 403.
+
+## AI Assistant (2)
+
+| Method | Path | Summary |
+|---|---|---|
+| POST | `/api/v1/assistant/ask` | Ask a question about your records. Answers cite retrieved record ids; uses the configured AI provider or deterministic retrieval when none is set. |
+| GET | `/api/v1/assistant/status` | AI provider status (honest: never claims a provider that is not configured) |
 
 ## Audit (1)
 
@@ -13,7 +20,7 @@ missing permissions return 403.
 |---|---|---|
 | GET | `/api/v1/audit` | Audit history (administrators: all; others: own organization only) |
 
-## Authentication (8)
+## Authentication (10)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -22,9 +29,11 @@ missing permissions return 403.
 | POST | `/api/v1/auth/login` | Login with JSON credentials |
 | GET | `/api/v1/auth/me` | Current user (incl. preferences and organization summary) |
 | PATCH | `/api/v1/auth/me` | Update your own profile (full name, email, preferences) |
-| POST | `/api/v1/auth/register` | Self-register (brand_owner role, no organization until an administrator assigns one) |
+| POST | `/api/v1/auth/register` | Self-register (brand_owner role, no organization until an administrator assigns one). Creates the account UNVERIFIED and emails a 6-digit OTP (uniform response whether or not the address already exists — no account enumeration). dev_otp only outside production with no email provider configured. |
+| POST | `/api/v1/auth/resend-verification` | Resend the signup OTP (or a generic notice). Uniform for unknown/verified/pending addresses (no enumeration); per-email cooldown; email_sent reports honest delivery. |
 | POST | `/api/v1/auth/reset-password` | Set a new password with a valid reset token (400 invalid_or_expired_token otherwise) |
 | POST | `/api/v1/auth/token` | OAuth2 password form (used by Swagger 'Authorize') |
+| POST | `/api/v1/auth/verify-email` | Confirm the 6-digit OTP from the verification email (single-use, attempt-limited, TTL-bound). Generic 400 on any failure — never reveals whether the address exists. |
 
 ## Brands (7)
 
@@ -183,4 +192,15 @@ missing permissions return 403.
 |---|---|---|
 | GET | `/api/v1/reports/export/csv` | CSV export: report=threats\|cases\|entities\|apps\|evidence (attachment download) |
 | GET | `/api/v1/reports/overview` | Aggregate risk/case/evidence overview for a date range (empty DB returns zeros) |
+
+## Investigation Tools (6)
+
+| Method | Path | Summary |
+|---|---|---|
+| GET | `/api/v1/tools/analyses` | List your organization's past tool runs (newest first) |
+| GET | `/api/v1/tools/analyses/{analysis_id}` | Fetch one stored analysis |
+| POST | `/api/v1/tools/email/analyze` | Analyze a pasted email or uploaded .eml for phishing signals (sender, SPF/DMARC, links, language, attachments metadata) |
+| POST | `/api/v1/tools/job/analyze` | Assess a job offer / recruiter (employer identity, email-domain mismatch, fee requests, application link) |
+| POST | `/api/v1/tools/social/analyze` | Assess a social profile against official brand references (handles, names, linked domains). Provider-verified identity is only claimed when a real platform connector is configured. |
+| POST | `/api/v1/tools/url/analyze` | Scan a URL: canonicalisation, DNS (public-only), TLS certificate, SPF/DMARC, lookalike domain, offline heuristics; live fetch only when URL_FETCH_ENABLED=true |
 

@@ -343,4 +343,4 @@ def export_csv(
         w.writerow([ev.id, ev.kind.value, ev.title, ev.entity.display_name if ev.entity else "",
                     ev.sha256 or "", ev.size_bytes or "", verification_status(ev), ev.provenance.value,
                     " ".join(by_case.get(ev.id, [])), ev.created_at])
-    return f"nimbus-evidence-{datetime.now(UTC).date().isoformat()}.csv", buf.getvalue()
+    return f"anarisk-evidence-{datetime.now(UTC).date().isoformat()}.csv", buf.getvalue()

@@ -28,16 +28,22 @@ export const Modal: React.FC<ModalProps> = ({
   closeOnBackdrop = true,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Keep the latest onClose without making it an effect dependency: parents pass an
+  // inline arrow (new identity every render), and re-running the effect on each
+  // keystroke re-scheduled the "focus first element" timeout — stealing focus from
+  // whatever the user was typing into (the Add Asset modal "closing itself" bug).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    // focus first focusable element
+    // focus first focusable element — ONCE per open, never on parent re-renders
     const t = setTimeout(() => {
       const el = panelRef.current?.querySelector<HTMLElement>(
         'input, select, textarea, button:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -49,7 +55,7 @@ export const Modal: React.FC<ModalProps> = ({
       document.body.style.overflow = prev;
       clearTimeout(t);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

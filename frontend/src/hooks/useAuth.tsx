@@ -157,7 +157,7 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
       <div className="flex min-h-screen items-center justify-center bg-bg">
         <div className="flex flex-col items-center gap-3">
           <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-brand-200 border-t-brand-500" />
-          <p className="text-[13px] font-medium text-muted">Loading Nimbus Ninjas…</p>
+          <p className="text-[13px] font-medium text-muted">Loading AnaRisk…</p>
         </div>
       </div>
     );

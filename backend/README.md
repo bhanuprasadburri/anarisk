@@ -1,4 +1,4 @@
-# Nimbus Ninjas — Digital Risk Protection Platform (backend)
+# Anarisk — Digital Risk Protection Platform (backend)
 
 This directory is a standalone FastAPI project. Its migrations, Docker setup, tests,
 environment template, and application code are self-contained here.

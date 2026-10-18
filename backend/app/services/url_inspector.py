@@ -148,7 +148,7 @@ class SafeFetcher:
         conn = cls(p.host, target.port, target.ip, timeout)
         try:
             path = (p.path or "/") + (f"?{p.query}" if p.query else "")
-            conn.request("GET", path, headers={"User-Agent": "NimbusNinjas-DRP-Inspector/1.0", "Accept": "text/html,*/*;q=0.5", "Accept-Encoding": "identity", "Connection": "close"})
+            conn.request("GET", path, headers={"User-Agent": "AnaRisk-DRP-Inspector/1.0", "Accept": "text/html,*/*;q=0.5", "Accept-Encoding": "identity", "Connection": "close"})
             resp = conn.getresponse()
             body, truncated = b"", False
             while True:

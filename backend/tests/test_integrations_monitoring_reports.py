@@ -239,7 +239,7 @@ def test_reports_csv_exports_and_permissions(client, world):
         r = client.get("/api/v1/reports/export/csv", headers=h, params={"report": report})
         assert r.status_code == 200, f"{report}: {r.text[:200]}"
         assert "text/csv" in r.headers["content-type"]
-        assert r.headers["content-disposition"] == f'attachment; filename="nimbus-{report}-{today}.csv"'
+        assert r.headers["content-disposition"] == f'attachment; filename="anarisk-{report}-{today}.csv"'
         lines = r.text.splitlines()
         assert lines and lines[0].split(",") == CSV_COLUMNS[report]  # proper header row
 

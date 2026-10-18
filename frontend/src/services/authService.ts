@@ -1,5 +1,5 @@
 import { apiRequest } from './apiClient';
-import { AuthResponse, CurrentUser, UserPreferences } from '../types';
+import { AuthResponse, CurrentUser, RegisterResult, ResendVerificationResult, UserPreferences } from '../types';
 
 export const authService = {
   async login(email: string, password: string): Promise<AuthResponse> {
@@ -15,10 +15,31 @@ export const authService = {
     email: string;
     password: string;
     full_name: string;
-  }): Promise<CurrentUser> {
-    return apiRequest<CurrentUser>('/auth/register', {
+  }): Promise<RegisterResult> {
+    return apiRequest<RegisterResult>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  },
+
+  /** Confirm the 6-digit OTP from the verification email (single-use, attempt-limited). */
+  async verifyEmail(email: string, code: string): Promise<CurrentUser> {
+    return apiRequest<CurrentUser>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  },
+
+  /**
+   * Resend the signup OTP. Always 200 (uniform for unknown/verified/pending addresses —
+   * no enumeration). `status: 'cooldown'` carries `retry_after_seconds`; `dev_otp` only
+   * appears outside production when no email provider is configured. `email_sent` reports
+   * honest delivery — never assume an email went out.
+   */
+  async resendVerification(email: string): Promise<ResendVerificationResult> {
+    return apiRequest('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
   },
 

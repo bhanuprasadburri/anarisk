@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Shield, Search, Radar, Zap, AlertCircle, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Shield, Search, Radar, Zap, AlertCircle, ArrowRight, MailCheck } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/button';
 import { Input, Field } from '../components/ui/input';
@@ -66,8 +66,8 @@ const BrandPanel: React.FC = () => (
           <Shield className="h-6 w-6 text-white" />
         </span>
         <div className="leading-tight">
-          <p className="text-lg font-extrabold tracking-[0.16em] text-white">NIMBUS</p>
-          <p className="-mt-0.5 text-[11px] font-bold uppercase tracking-[0.34em] text-white/70">Ninjas</p>
+          <p className="text-lg font-extrabold tracking-[0.16em] text-white">ANARISK</p>
+          <p className="-mt-0.5 text-[11px] font-bold uppercase tracking-[0.34em] text-white/70">Digital Risk</p>
         </div>
       </div>
 
@@ -112,6 +112,22 @@ export const LoginPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Post-registration state: the account is NOT activated until the emailed OTP is confirmed.
+  const [registered, setRegistered] = useState<{
+    email: string;
+    devOtp?: string | null;
+    emailSent?: boolean;
+    deliveryFailed?: boolean;
+  } | null>(null);
+  const [resendInfo, setResendInfo] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0); // seconds until another resend is allowed
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -140,23 +156,70 @@ export const LoginPage: React.FC = () => {
         await login(email.trim(), password);
         if (remember) localStorage.setItem('nimbus_remember_email', email.trim());
         else localStorage.removeItem('nimbus_remember_email');
-        toast.success('Welcome back', 'Signed in to Nimbus Ninjas.');
+        toast.success('Welcome back', 'Signed in to AnaRisk.');
         navigate((location.state as any)?.from || '/dashboard', { replace: true });
       } else {
         const { authService } = await import('../services/authService');
-        await authService.register({ email: email.trim(), password, full_name: fullName.trim() });
-        await login(email.trim(), password);
-        toast.success('Account created', 'Your workspace account is ready.');
-        navigate('/dashboard', { replace: true });
+        const res = await authService.register({ email: email.trim(), password, full_name: fullName.trim() });
+        // Honest state: never auto-login before verification, and never claim an email was
+        // sent unless the backend confirmed delivery (or returned a dev-only code).
+        setRegistered({
+          email: res.email,
+          devOtp: res.dev_otp ?? null,
+          emailSent: res.email_sent,
+          deliveryFailed: !res.email_sent && !res.dev_otp,
+        });
+        if (res.email_sent) {
+          toast.info('Verification code sent', `Enter the 6-digit code we emailed to ${res.email}.`);
+        } else if (res.dev_otp) {
+          toast.info('No email provider configured', 'No email was sent — use the dev code shown below.');
+        } else {
+          toast.error('Verification email not sent', 'Delivery failed or no email provider is configured. Try resending, or ask an administrator for help.');
+        }
+        setSubmitting(false);
+        return;
       }
     } catch (err) {
-      const msg =
-        err instanceof ApiError
-          ? err.message
-          : 'Could not sign in. Check your connection and try again.';
-      setError(msg);
+      if (err instanceof ApiError && err.code === 'email_not_verified') {
+        setError('Your email address has not been verified yet. Enter the 6-digit code we sent you, or request a new one.');
+        setRegistered({ email: email.trim(), devOtp: null, emailSent: false });
+      } else {
+        const msg =
+          err instanceof ApiError
+            ? err.message
+            : 'Could not sign in. Check your connection and try again.';
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    if (!registered || cooldown > 0) return;
+    setResending(true);
+    setResendInfo(null);
+    try {
+      const { authService } = await import('../services/authService');
+      const res = await authService.resendVerification(registered.email);
+      if (res.status === 'cooldown') {
+        const wait = res.retry_after_seconds ?? 60;
+        setCooldown(wait);
+        setResendInfo(`Please wait ${wait} seconds before requesting another code.`);
+      } else if (res.dev_otp) {
+        setRegistered((r) => (r ? { ...r, devOtp: res.dev_otp ?? null, deliveryFailed: false } : r));
+        setResendInfo('No email provider configured in this environment — no email was sent. Use the dev code above.');
+        if (res.retry_after_seconds) setCooldown(res.retry_after_seconds);
+      } else if (res.email_sent) {
+        setResendInfo('A new code is on its way. Check your inbox and spam folder.');
+        if (res.retry_after_seconds) setCooldown(res.retry_after_seconds);
+      } else {
+        setResendInfo('The verification email could not be sent. Try again shortly.');
+      }
+    } catch (err) {
+      setResendInfo(err instanceof ApiError ? err.message : 'Could not resend right now. Try again shortly.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -169,7 +232,7 @@ export const LoginPage: React.FC = () => {
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-gradient text-white">
               <Shield className="h-5 w-5" />
             </span>
-            <p className="text-base font-extrabold tracking-[0.14em] text-ink">NIMBUS NINJAS</p>
+            <p className="text-base font-extrabold tracking-[0.14em] text-ink">ANARISK</p>
           </div>
 
           <h2 className="text-2xl font-extrabold tracking-tight text-ink">
@@ -177,7 +240,7 @@ export const LoginPage: React.FC = () => {
           </h2>
           <p className="mt-1.5 text-sm text-muted">
             {mode === 'signin'
-              ? 'Sign in to your Nimbus Ninjas account'
+              ? 'Sign in to your AnaRisk account'
               : 'Start monitoring your digital surface in minutes'}
           </p>
 
@@ -188,7 +251,72 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+          {registered ? (
+            <div className="mt-6 rounded-2xl border border-brand-100 bg-brand-50/60 p-5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm">
+                <MailCheck className="h-5 w-5" />
+              </span>
+              <h3 className="mt-3 text-[15px] font-bold text-ink">Verification required</h3>
+              <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
+                Enter the 6-digit code we emailed to{' '}
+                <code className="rounded bg-white px-1.5 py-0.5 font-semibold">{registered.email}</code> to
+                activate your account. The code expires after a short time and can only be used once.
+              </p>
+
+              {registered.deliveryFailed && (
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-danger-100 bg-white px-3 py-2.5">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                  <p className="text-[12px] leading-relaxed text-danger-600">
+                    No verification email was sent — delivery failed or no email provider is configured. Try
+                    resending, or ask an administrator to verify your address.
+                  </p>
+                </div>
+              )}
+              {registered.devOtp && (
+                <p className="mt-2 break-all rounded-lg bg-white px-3 py-2 text-[12px] leading-relaxed text-muted">
+                  <strong className="text-ink-700">Development mode (no email provider configured):</strong> no
+                  email was sent. Your code is{' '}
+                  <code className="font-semibold tracking-[0.25em] text-ink">{registered.devOtp}</code>.
+                </p>
+              )}
+              {resendInfo && (
+                <p className="mt-2 break-words rounded-lg bg-white px-3 py-2 text-[12px] leading-relaxed text-ink-700">
+                  {resendInfo}
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`/verify-email?email=${encodeURIComponent(registered.email)}`)}
+                >
+                  Enter code
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={resendVerification}
+                  loading={resending}
+                  disabled={cooldown > 0}
+                >
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setRegistered(null);
+                    setResendInfo(null);
+                    setError(null);
+                    setMode('signin');
+                  }}
+                >
+                  Back to sign in
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
             {mode === 'signup' && (
               <Field label="Full name" error={fieldErrors.fullName} required>
                 <Input
@@ -252,6 +380,7 @@ export const LoginPage: React.FC = () => {
               {!submitting && <ArrowRight className="ml-1 h-4 w-4" />}
             </Button>
           </form>
+          )}
 
           <p className="mt-6 text-center text-[13px] text-muted">
             {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
@@ -260,24 +389,14 @@ export const LoginPage: React.FC = () => {
                 setMode(mode === 'signin' ? 'signup' : 'signin');
                 setError(null);
                 setFieldErrors({});
+                setRegistered(null);
+                setResendInfo(null);
               }}
               className="font-semibold text-brand-600 hover:text-brand-700"
             >
               {mode === 'signin' ? 'Create one' : 'Sign in'}
             </button>
           </p>
-
-          <div className="mt-8 rounded-xl border border-line bg-surface p-3.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-faint">Demo accounts</p>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
-              <code className="rounded bg-line-soft px-1.5 py-0.5 font-semibold text-ink-700">admin@nimbus.example</code>{' '}
-              / <code className="rounded bg-line-soft px-1.5 py-0.5 font-semibold text-ink-700">ChangeMe-Admin-123</code>
-              <br />
-              Investigators:{' '}
-              <code className="rounded bg-line-soft px-1.5 py-0.5 font-semibold text-ink-700">investigator@nimbus.example</code>{' '}
-              / <code className="rounded bg-line-soft px-1.5 py-0.5 font-semibold text-ink-700">Demo-Passw0rd!</code>
-            </p>
-          </div>
         </div>
       </div>
     </div>

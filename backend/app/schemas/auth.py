@@ -15,6 +15,29 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class VerifyEmailRequest(BaseModel):
+    """Confirm the 6-digit signup OTP. `code` is format-validated (422 on malformed input);
+    existence/state is never disclosed by the 400 path (generic error)."""
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ResendVerificationResponse(BaseModel):
+    """Uniform for unknown / verified / pending addresses (no enumeration).
+    `retry_after_seconds` is a static config value on `accepted` and the remaining
+    cooldown on `cooldown`; `dev_otp` only appears outside production with no provider."""
+
+    status: str = "accepted"  # accepted | cooldown
+    email_sent: bool = False
+    retry_after_seconds: int | None = None
+    dev_otp: str | None = None
+    dev_only: bool = False
+
+
 class LoginRequest(BaseModel):
     email: str = Field(max_length=320)
     password: str = Field(max_length=256)
@@ -59,6 +82,22 @@ class UserOut(ORM):
     preferences: dict | None = None
     created_at: datetime
     last_login_at: datetime | None = None
+    email_verified_at: datetime | None = None
+
+
+class RegisterResponse(BaseModel):
+    """Uniform registration result — identical shape whether or not the address already
+    had an account (no enumeration). `dev_otp` is only populated outside production when
+    no email provider is configured; it is never returned in production. `status` is
+    `verification_required` when the message left the process, `delivery_failed` when it
+    did not (the UI must not claim an email was sent in that case)."""
+
+    status: str = "verification_required"
+    email: str
+    verification_required: bool = True
+    email_sent: bool = False
+    dev_otp: str | None = None
+    dev_only: bool = False
 
 
 class UserCreate(BaseModel):

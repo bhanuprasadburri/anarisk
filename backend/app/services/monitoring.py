@@ -11,12 +11,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.errors import ConflictError, NotFoundError, ValidationFailure
-from app.models import Brand, DigitalEntity, MonitoringTarget, User
+from app.models import Brand, DigitalEntity, MonitoringSyncRun, MonitoringTarget, User
 from app.models.enums import EntityType, Provenance, Severity, SourceKind
 from app.repositories.access import brand_scope, get_brand_for_user
 from app.schemas.entity import EntitySubmit
 from app.schemas.monitoring import MonitoringCreate, MonitoringPatch, MonitoringTargetOut
-from app.services import analysis, audit, ingestion
+from app.services import analysis, audit, ingestion, scheduler
 from app.utils.urls import parse_url
 
 GOOGLE_PLAY_PACKAGE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$")
@@ -97,6 +97,7 @@ def item_dict(t: MonitoringTarget) -> dict[str, Any]:
             "provenance": e.provenance.value, "last_seen_at": e.last_seen_at, "source_url": e.source_url,
         },
         "last_sync_at": t.last_sync_at, "created_at": t.created_at,
+        "next_run_at": t.next_run_at, "retry_count": t.retry_count, "last_run_status": t.last_run_status,
     }
 
 
@@ -133,6 +134,7 @@ def create_target(db: Session, actor: User, body: MonitoringCreate) -> dict[str,
                           "entity_provenance": entity.provenance.value},
                  organization_id=brand.organization_id)
     db.commit()
+    scheduler.schedule_target(db, target.id)  # first scheduled check one interval from now
     return {"target": item_dict(get_target(db, actor, target.id)),
             "message": ("Monitoring target created and linked to a mobile_app entity ingested via the SYNTHETIC "
                         "sample pipeline (provenance=synthetic). No live app-store data was fetched.")}
@@ -183,6 +185,11 @@ def patch_target(db: Session, actor: User, target_id: uuid.UUID, body: Monitorin
     if changes:
         audit.record(db, actor, "monitoring_target.update", "monitoring_target", t.id, details=changes)
         db.commit()
+        if t.monitoring_status == "active":
+            scheduler.schedule_target(db, t.id)  # explicit resume puts it back on the schedule
+        elif t.monitoring_status == "paused":
+            t.next_run_at = None  # paused targets are never picked up by the scheduler
+            db.commit()
     return item_dict(get_target(db, actor, t.id))
 
 
@@ -196,6 +203,23 @@ def delete_target(db: Session, actor: User, target_id: uuid.UUID) -> None:
 
 
 def sync_target(db: Session, actor: User, target_id: uuid.UUID) -> dict[str, Any]:
+    t = get_target(db, actor, target_id)
+    started = datetime.now(UTC)
+    run = MonitoringSyncRun(target_id=t.id, status="failed", triggered_by="manual", started_at=started)
+    db.add(run)
+    db.commit()
+    try:
+        return _sync_target_inner(db, actor, target_id, run)
+    except Exception:
+        run = db.get(MonitoringSyncRun, run.id)
+        if run is not None:
+            run.finished_at = datetime.now(UTC)
+            run.error = "sync failed (see application logs)"
+            db.commit()
+        raise
+
+
+def _sync_target_inner(db: Session, actor: User, target_id: uuid.UUID, run: MonitoringSyncRun) -> dict[str, Any]:
     t = get_target(db, actor, target_id)
     brand = get_brand_for_user(db, actor, t.brand_id)
     source = ingestion.ensure_source(db, "sample-listings", "Synthetic sample listings (demo)", SourceKind.SYNTHETIC,
@@ -218,6 +242,8 @@ def sync_target(db: Session, actor: User, target_id: uuid.UUID) -> dict[str, Any
         "note": "synthetic sample sync - not live app-store data",
     })
     t.entity_id, t.last_sync_at = entity.id, datetime.now(UTC)
+    t.retry_count, t.last_run_status = 0, "success"
+    run.status, run.finished_at, run.error = "success", datetime.now(UTC), None
     reanalyzed, official_reason = True, None
     try:
         analysis.analyze_entity(db, actor, entity, commit=False)
@@ -228,6 +254,7 @@ def sync_target(db: Session, actor: User, target_id: uuid.UUID) -> dict[str, Any
                           "reanalyzed": reanalyzed, "provenance": "synthetic"},
                  organization_id=brand.organization_id)
     db.commit()
+    scheduler.schedule_target(db, t.id)  # next scheduled check
     message = (f"Synced {t.package_id} via the SYNTHETIC sample connector (provenance=synthetic): attributes updated "
                "from SAMPLE data, not a live app-store fetch. "
                + ("Rule-based heuristic re-analysis completed." if reanalyzed

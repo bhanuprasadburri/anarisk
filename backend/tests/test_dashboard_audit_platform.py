@@ -166,9 +166,12 @@ def test_database_constraints_enforced(db, f, world):
 def test_health_and_ready(client):
     assert client.get("/api/v1/health").json()["status"] == "ok"
     r = client.get("/api/v1/ready").json()
-    from app.main import expected_head
+    from app.main import expected_head, _ROOT
     assert r["status"] == "ready" and r["migration_revision"] == expected_head()
-    assert expected_head() == "0002"
+    # the shipped head must be the newest revision file in alembic/versions/
+    revisions = [f for f in (_ROOT / "alembic" / "versions").glob("*.py") if not f.name.startswith("_")]
+    assert len(revisions) >= 3  # 0001 initial, 0002 ops tables, 0003+ extensions
+    assert expected_head() in {f.stem.split("_")[1] for f in revisions}
 
 
 def test_ready_reports_503_when_not_migrated(client):

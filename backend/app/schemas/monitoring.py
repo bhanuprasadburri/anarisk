@@ -42,6 +42,9 @@ class MonitoringTargetOut(BaseModel):
     entity: EntityBriefMonitoring | None = None
     last_sync_at: datetime | None = None
     created_at: datetime
+    next_run_at: datetime | None = None
+    retry_count: int = 0
+    last_run_status: Literal["success", "failed"] | None = None
 
 
 class MonitoringCreate(BaseModel):

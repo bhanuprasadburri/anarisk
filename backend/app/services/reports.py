@@ -318,5 +318,5 @@ def export_csv(db: Session, actor, report: str, from_: str | None, to: str | Non
     writer = csv.writer(buf)
     writer.writerow(columns)
     writer.writerows(rows)
-    filename = f"nimbus-{report}-{date.today().isoformat()}.csv"
+    filename = f"anarisk-{report}-{date.today().isoformat()}.csv"
     return filename, buf.getvalue()

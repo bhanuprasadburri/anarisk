@@ -261,7 +261,7 @@ const ProfileTab: React.FC = () => {
           <CardTitle className="flex items-center gap-2">
             <UserIcon className="h-4 w-4 text-brand-500" /> My profile
           </CardTitle>
-          <CardDescription>How you appear across Nimbus Ninjas.</CardDescription>
+          <CardDescription>How you appear across AnaRisk.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4 rounded-xl bg-brand-gradient-soft p-4">
@@ -295,7 +295,7 @@ const ProfileTab: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="jane@nimbus.example"
+                placeholder="jane@anarisk.example"
                 className={emailErr ? 'border-danger' : undefined}
                 autoComplete="email"
               />
@@ -971,7 +971,7 @@ const TeamTab: React.FC = () => {
               value={invEmail}
               onChange={(e) => setInvEmail(e.target.value)}
               className={invErrs.email ? 'border-danger' : undefined}
-              placeholder="teammate@nimbus.example"
+              placeholder="teammate@anarisk.example"
             />
           </Field>
           <Field label="Full name" error={invErrs.full_name || null} required htmlFor="inv-name">
@@ -1053,8 +1053,8 @@ const KIND_TONES: Record<string, BadgeTone> = {
 const KIND_HINTS: Record<string, string> = {
   image: 'Perceptual hash (16 hex characters) — or use "Upload logo image" for a file.',
   domain: 'e.g. example.com',
-  handle: 'e.g. nimbusninjas',
-  app_package: 'e.g. com.nimbus.ninjas',
+  handle: 'e.g. anarisk',
+  app_package: 'e.g. com.anarisk.app',
 };
 
 const RefValueCell: React.FC<{ refItem: BrandReference }> = ({ refItem }) => {
@@ -1512,7 +1512,7 @@ const BrandsTab: React.FC = () => {
       >
         <div className="space-y-4">
           <Field label="Brand name" error={nbErr} required htmlFor="nb-name">
-            <Input id="nb-name" value={nbName} onChange={(e) => setNbName(e.target.value)} className={nbErr ? 'border-danger' : undefined} placeholder="Nimbus Ninjas" />
+            <Input id="nb-name" value={nbName} onChange={(e) => setNbName(e.target.value)} className={nbErr ? 'border-danger' : undefined} placeholder="AnaRisk" />
           </Field>
           <Field label="Description" htmlFor="nb-desc" hint="Optional">
             <Textarea id="nb-desc" value={nbDesc} onChange={(e) => setNbDesc(e.target.value)} placeholder="What this brand covers" />
@@ -1691,7 +1691,7 @@ const IntegrationsTab: React.FC = () => {
           <p className="text-[13.5px] font-bold text-brand-800">Connectors are honest</p>
           <p className="mt-0.5 text-[12.5px] leading-relaxed text-brand-700/90">
             Providers that need real API credentials show <strong>“Configured — unverified”</strong> until live access is
-            proven by a passing test. Nimbus Ninjas never fakes a connected state, and secrets are encrypted at rest and
+            proven by a passing test. AnaRisk never fakes a connected state, and secrets are encrypted at rest and
             never returned by the API.
             {!canRun && ' Your role has read-only access to connectors.'}
           </p>
@@ -2167,7 +2167,7 @@ const MonitoringTab: React.FC = () => {
               ))}
             </Select>
           </Field>
-          <Field label="Package id" error={addErrs.package_id || null} required htmlFor="mon-package" hint="e.g. com.nimbus.ninjas">
+          <Field label="Package id" error={addErrs.package_id || null} required htmlFor="mon-package" hint="e.g. com.anarisk.app">
             <Input
               id="mon-package"
               value={addPackage}
@@ -2215,7 +2215,7 @@ const MonitoringTab: React.FC = () => {
 /* ------------------------------------------------------------------ */
 
 const PREF_ROWS: Array<{ key: keyof UserPreferences; label: string; description: string }> = [
-  { key: 'notify_inapp', label: 'In-app notifications', description: 'Show notifications in the bell menu while you use Nimbus Ninjas.' },
+  { key: 'notify_inapp', label: 'In-app notifications', description: 'Show notifications in the bell menu while you use AnaRisk.' },
   { key: 'notify_case_events', label: 'Case events', description: 'Assignments, status changes, escalations and resolutions.' },
   { key: 'notify_high_risk', label: 'High-risk detections', description: 'New high or critical severity entities in your brands.' },
   { key: 'notify_evidence', label: 'Evidence updates', description: 'New evidence attached to entities and cases you follow.' },
@@ -2303,7 +2303,7 @@ const NotificationsTab: React.FC = () => {
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-brand-500" /> Notification preferences
           </CardTitle>
-          <CardDescription>Choose what reaches you inside Nimbus Ninjas.</CardDescription>
+          <CardDescription>Choose what reaches you inside AnaRisk.</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="divide-y divide-line-soft">

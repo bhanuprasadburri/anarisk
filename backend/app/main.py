@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 
@@ -34,11 +35,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 def create_app() -> FastAPI:
     s = get_settings()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        from app.services import scheduler
+
+        scheduler.start()
+        try:
+            yield
+        finally:
+            scheduler.stop()
+
     app = FastAPI(
         title=s.app_name, version=s.app_version, debug=s.debug,
-        description=("Backend for Nimbus Ninjas - Digital Risk Protection. Detection scores are **heuristic and unvalidated**; "
+        description=("Backend for AnaRisk - Digital Risk Protection. Detection scores are **heuristic and unvalidated**; "
                      "investigators must confirm findings before any enforcement. Data provenance (collected/manual/synthetic) is tracked everywhere."),
         docs_url="/docs", redoc_url="/redoc", openapi_url="/openapi.json", dependencies=[Depends(capture_ip)],
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware, allow_origins=s.cors_origins, allow_credentials=True, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],

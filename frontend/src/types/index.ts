@@ -8,6 +8,7 @@ export interface User {
   organization_id?: string;
   is_active: boolean;
   created_at: string;
+  email_verified_at?: string | null;
 }
 
 export interface AuthResponse {
@@ -417,6 +418,10 @@ export interface MonitoringTarget {
     source_url?: string | null;
   } | null;
   last_sync_at?: string | null;
+  // background scheduler fields (DB-backed; -1/null when not scheduled)
+  next_run_at?: string | null;
+  retry_count?: number;
+  last_run_status?: 'success' | 'failed' | null;
   created_at: string;
 }
 
@@ -539,6 +544,87 @@ export interface UserPreferences {
 export interface CurrentUser extends User {
   preferences?: UserPreferences | null;
   organization?: Organization | null;
+}
+
+// ---- Investigation tools (email / job / social / url) ----
+export type ToolKey = 'email' | 'job_offer' | 'social_profile' | 'url';
+export type FindingStatus = 'verified' | 'suspicious' | 'inconclusive' | 'unable_to_verify' | 'info';
+export type FindingSeverity = 'none' | 'low' | 'medium' | 'high' | 'critical' | 'unknown';
+
+export interface ToolFinding {
+  check: string;
+  title: string;
+  status: FindingStatus;
+  severity: FindingSeverity;
+  summary: string;
+  evidence: string[];
+  source: string;
+  limitation?: string | null;
+  weight: number;
+}
+
+export interface ToolAnalysis {
+  id: string;
+  organization_id?: string | null;
+  created_by_id?: string | null;
+  tool: ToolKey;
+  subject: string;
+  input_summary?: Record<string, unknown> | null;
+  findings: ToolFinding[];
+  risk_score?: number | null;
+  severity: string;
+  confidence?: number | null;
+  methodology_version: string;
+  created_at: string;
+}
+
+// ---- AI assistant ----
+export interface AssistantCitation {
+  type: string;
+  id: string;
+  title: string;
+}
+
+export interface AssistantAskResponse {
+  answer: string;
+  cited: AssistantCitation[];
+  used_ai: boolean;
+  provider: string;
+  model: string;
+  unsupported_citations: string[];
+  limitation: string;
+}
+
+export interface AIStatus {
+  provider: string;
+  model?: string | null;
+  configured: boolean;
+  note: string;
+}
+
+// ---- Auth: email verification (OTP) ----
+/**
+ * Uniform registration result — the backend returns the same shape whether or not the
+ * address already had an account (no enumeration). The account is NOT activated until
+ * the emailed 6-digit code is confirmed.
+ */
+export interface RegisterResult {
+  status?: string; // verification_required | delivery_failed
+  email: string;
+  verification_required?: boolean;
+  email_sent?: boolean;
+  /** Development-only fallback when no email provider is configured; never present in production. */
+  dev_otp?: string | null;
+  dev_only?: boolean;
+}
+
+/** Uniform resend result (accepted | cooldown); `dev_otp` only outside production. */
+export interface ResendVerificationResult {
+  status: string;
+  email_sent?: boolean;
+  retry_after_seconds?: number | null;
+  dev_otp?: string | null;
+  dev_only?: boolean;
 }
 
 export interface AuditLogEntry extends AuditLog {}

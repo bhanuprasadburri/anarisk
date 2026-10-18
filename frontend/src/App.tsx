@@ -20,6 +20,10 @@ const MobileAppsPage = lazy(() => import('./pages/MobileAppsPage'));
 const EvidencePage = lazy(() => import('./pages/EvidencePage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
+const InvestigatePage = lazy(() => import('./pages/InvestigatePage'));
+const AssistantPage = lazy(() => import('./pages/AssistantPage'));
+const AlertsPage = lazy(() => import('./pages/AlertsPage'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,7 +42,7 @@ const NotFoundPage: React.FC = () => {
       <h1 className="mt-4 text-xl font-bold text-ink">Page not found</h1>
       <p className="mt-1.5 max-w-md text-sm text-muted">
         The path <code className="rounded bg-line-soft px-1.5 py-0.5 text-[13px]">{location.pathname}</code> doesn't
-        exist in Nimbus Ninjas.
+        exist in AnaRisk.
       </p>
       <a
         href="/dashboard"
@@ -64,6 +68,7 @@ export const App: React.FC = () => {
               <Route path="/login" element={<Page><LoginPage /></Page>} />
               <Route path="/forgot-password" element={<Page><ForgotPasswordPage /></Page>} />
               <Route path="/reset-password" element={<Page><ResetPasswordPage /></Page>} />
+              <Route path="/verify-email" element={<Page><VerifyEmailPage /></Page>} />
               <Route
                 path="/"
                 element={
@@ -81,6 +86,9 @@ export const App: React.FC = () => {
                 { path: '/assets', el: <AssetsPage /> },
                 { path: '/entities/:id', el: <EntityDetailPage /> },
                 { path: '/threat-intelligence', el: <ThreatIntelPage /> },
+                { path: '/investigate', el: <InvestigatePage /> },
+                { path: '/assistant', el: <AssistantPage /> },
+                { path: '/alerts', el: <AlertsPage /> },
                 { path: '/risk-graph', el: <RiskGraphPage /> },
                 { path: '/cases', el: <CasesPage /> },
                 { path: '/cases/:id', el: <CaseDetailPage /> },

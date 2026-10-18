@@ -31,7 +31,7 @@ DEFAULT_CASE_TRANSITIONS: dict[str, list[str]] = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Nimbus Ninjas - Digital Risk Protection API"
+    app_name: str = "AnaRisk - Digital Risk Protection API"
     app_version: str = "1.0.0"
     environment: str = "development"  # development | test | production
     debug: bool = False
@@ -50,6 +50,43 @@ class Settings(BaseSettings):
     allow_public_registration: bool = True
     bootstrap_admin_email: str = "admin@nimbus.example"
     bootstrap_admin_password: str = "ChangeMe-Admin-123"
+
+    # ---- email delivery (real transactional email) ----
+    # provider: none (dev fallback only) | smtp | resend
+    email_provider: str = "none"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    smtp_use_ssl: bool = False
+    resend_api_key: str = ""
+    resend_api_base_url: str = "https://api.resend.com"
+    email_from_address: str = "noreply@nimbus.local"
+    email_from_name: str = "AnaRisk"
+    frontend_url: str = "http://localhost:3000"
+    email_max_retries: int = 1
+    email_timeout_seconds: float = 10.0
+    # ---- email OTP verification (signup / profile email change) ----
+    # The 6-digit code is stored only as an HMAC-SHA256 hash keyed by SECRET_KEY.
+    otp_ttl_minutes: int = 10          # short-lived by design; a new code can be requested after this
+    otp_max_attempts: int = 5          # wrong attempts per code before that code is locked out
+    resend_verification_cooldown_seconds: int = 60  # per-email throttle on resend (uniform: known or unknown addresses)
+
+    # ---- AI analysis provider (optional; deterministic fallback when absent) ----
+    # provider: none | openai-compatible (works with OpenAI, Azure OpenAI-compatible gateways, Ollama, etc.)
+    ai_provider: str = "none"
+    ai_api_key: str = ""
+    ai_base_url: str = "https://api.openai.com/v1"
+    ai_model: str = ""
+    ai_timeout_seconds: float = 30.0
+    ai_max_tokens: int = 1500
+
+    # ---- background monitoring worker (DB-scheduled; safe across multiple processes) ----
+    monitoring_worker_enabled: bool = True
+    monitoring_interval_seconds: int = 300
+    monitoring_retry_max: int = 3
+    monitoring_backoff_seconds: int = 120
 
     # ---- rate limiting (in-memory, per process; use a shared store behind multiple workers) ----
     rate_limit_enabled: bool = True
@@ -161,7 +198,13 @@ class Settings(BaseSettings):
         c = self.confidence_w_evidence + self.confidence_w_availability + self.confidence_w_corroboration
         if abs(c - 1.0) > 1e-9:
             raise ValueError("confidence component weights must sum to 1")
+        if self.email_provider not in ("none", "smtp", "resend", "memory"):
+            raise ValueError("EMAIL_PROVIDER must be one of: none, smtp, resend, memory")
+        if self.ai_provider not in ("none", "openai-compatible", "memory"):
+            raise ValueError("AI_PROVIDER must be one of: none, openai-compatible, memory")
         if self.environment == "production":
+            if self.email_provider == "none":
+                log.warning("EMAIL_PROVIDER is 'none' in production: password-reset and verification emails will NOT be delivered")
             if self.secret_key == PLACEHOLDER_SECRET or len(self.secret_key) < 32:
                 raise ValueError("SECRET_KEY must be set to a random value of >= 32 chars in production")
             if "*" in self.cors_origins:

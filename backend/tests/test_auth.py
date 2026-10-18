@@ -9,24 +9,35 @@ def test_register_creates_orgless_brand_owner_and_hides_hash(client, db):
     r = client.post("/api/v1/auth/register", json={"email": "New@Test.Example", "full_name": "New User", "password": PASSWORD})
     assert r.status_code == 201
     body = r.json()
-    assert body["role"] == "brand_owner" and body["organization_id"] is None and body["email"] == "new@test.example"
-    assert "hashed_password" not in body and "password" not in body
+    # uniform verification response: email echoed, nothing sensitive, no role/org disclosure
+    assert body["email"] == "new@test.example" and body["verification_required"] is True
+    assert "hashed_password" not in body and "password" not in body and "id" not in body
     from app.models import User
     u = db.query(User).one()
+    assert u.role.value == "brand_owner" and u.organization_id is None  # forced server-side
+    assert u.email_verified_at is None  # not activated until the OTP is confirmed
     assert u.hashed_password != PASSWORD and u.hashed_password.startswith("$2")
 
 
-def test_register_cannot_choose_role_or_org(client):
+def test_register_cannot_choose_role_or_org(client, db):
     r = client.post("/api/v1/auth/register", json={"email": "x@test.example", "full_name": "X", "password": PASSWORD, "role": "administrator"})
-    assert r.status_code == 201 and r.json()["role"] == "brand_owner"
+    assert r.status_code == 201 and "role" not in r.json()  # the response never reflects caller-chosen roles
+    from app.models import User
+    u = db.query(User).one()
+    assert u.role.value == "brand_owner" and u.organization_id is None
 
 
-def test_register_weak_password_and_duplicate(client):
+def test_register_weak_password_and_duplicate(client, db):
     assert client.post("/api/v1/auth/register", json={"email": "a@test.example", "full_name": "A", "password": "short1"}).status_code == 422
     assert client.post("/api/v1/auth/register", json={"email": "a@test.example", "full_name": "A", "password": "onlyletterslong"}).status_code == 422
-    assert client.post("/api/v1/auth/register", json={"email": "a@test.example", "full_name": "A", "password": PASSWORD}).status_code == 201
-    r = client.post("/api/v1/auth/register", json={"email": "A@test.example", "full_name": "A", "password": PASSWORD})
-    assert r.status_code == 409 and r.json()["error"]["code"] == "email_taken"
+    r1 = client.post("/api/v1/auth/register", json={"email": "a@test.example", "full_name": "A", "password": PASSWORD})
+    assert r1.status_code == 201
+    # duplicate registration: uniform 201 (no email_taken disclosure) and still one account
+    r2 = client.post("/api/v1/auth/register", json={"email": "A@test.example", "full_name": "A", "password": PASSWORD})
+    assert r2.status_code == 201
+    assert set(r2.json().keys()) == set(r1.json().keys())
+    from app.models import User
+    assert db.query(User).count() == 1
 
 
 def test_registration_can_be_disabled(client, settings, monkeypatch):

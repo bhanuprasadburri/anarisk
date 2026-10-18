@@ -25,7 +25,7 @@ export const reportService = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nimbus-${report}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `anarisk-${report}-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -36,7 +36,7 @@ export const reportService = {
    * Client-side PDF report generation (print-optimized HTML blob download).
    * The data is the real ReportsOverview; we render a clean printable document.
    */
-  async exportPdfHtml(overview: ReportsOverview, title = 'Nimbus Ninjas Report'): Promise<void> {
+  async exportPdfHtml(overview: ReportsOverview, title = 'AnaRisk Report'): Promise<void> {
     const esc = (s: unknown) =>
       String(s ?? '—').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
     const rows = (pairs: Array<[string, string]>) =>
@@ -64,13 +64,13 @@ td.v{font-weight:600;text-align:right}
 <h2>Threats by channel</h2><table>${rows(overview.threats_by_channel.map((c) => [c.channel, String(c.count)]))}</table>
 <h2>Top connected entities</h2><table>${rows(overview.top_connected_entities.map((e) => [`${e.display_name} (${e.entity_type})`, `${e.relationship_count} links · risk ${e.risk_score ?? '—'}`]))}</table>
 <h2>Risk trend</h2><table>${rows(overview.risk_trend.filter((d) => d.avg_risk !== null).slice(-14).map((d) => [d.date, `avg ${d.avg_risk!.toFixed(2)} · ${d.detections} detections`]))}</table>
-<div class="footer">Nimbus Ninjas — Digital Threat Intelligence & Investigation Platform. Scores are heuristic and require human review.</div>
+<div class="footer">AnaRisk — Digital Threat Intelligence & Investigation Platform. Scores are heuristic and require human review.</div>
 </body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `nimbus-report-${new Date().toISOString().slice(0, 10)}.html`;
+    a.download = `anarisk-report-${new Date().toISOString().slice(0, 10)}.html`;
     document.body.appendChild(a);
     a.click();
     a.remove();

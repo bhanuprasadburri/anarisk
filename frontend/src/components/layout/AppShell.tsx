@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Globe, Network, BrainCircuit, Briefcase, Smartphone, FileSearch,
   BarChart3, Settings, Shield, Menu, X, Search, Bell, ChevronDown, LogOut, User as UserIcon,
-  Building2, Users, Plug, Palette, SlidersHorizontal, Activity,
+  Building2, Users, Plug, Palette, SlidersHorizontal, Activity, SearchCheck, Sparkles, Radar,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
@@ -24,6 +24,9 @@ export const NAV_SECTIONS: Array<{ title?: string; items: NavItem[] }> = [
       { to: '/dashboard', label: 'Overview', icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
       { to: '/assets', label: 'Digital Assets', icon: <Globe className="h-[18px] w-[18px]" /> },
       { to: '/threat-intelligence', label: 'Threat Intelligence', icon: <BrainCircuit className="h-[18px] w-[18px]" /> },
+      { to: '/investigate', label: 'Investigate', icon: <SearchCheck className="h-[18px] w-[18px]" /> },
+      { to: '/assistant', label: 'AI Assistant', icon: <Sparkles className="h-[18px] w-[18px]" /> },
+      { to: '/alerts', label: 'Alerts', icon: <Radar className="h-[18px] w-[18px]" /> },
       { to: '/risk-graph', label: 'Risk Graph', icon: <Network className="h-[18px] w-[18px]" /> },
       { to: '/cases', label: 'Investigations', icon: <Briefcase className="h-[18px] w-[18px]" /> },
       { to: '/mobile-apps', label: 'Mobile Apps', icon: <Smartphone className="h-[18px] w-[18px]" /> },
@@ -74,8 +77,8 @@ const Sidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
               <Shield className="h-5 w-5" />
             </span>
             <div className="leading-tight">
-              <p className="text-[15px] font-extrabold tracking-tight text-ink">NIMBUS</p>
-              <p className="-mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-500">Ninjas</p>
+              <p className="text-[15px] font-extrabold tracking-tight text-ink">ANARISK</p>
+              <p className="-mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-500">Digital Risk</p>
             </div>
           </div>
           <button className="rounded-lg p-1.5 text-faint hover:bg-line-soft lg:hidden" onClick={onClose} aria-label="Close menu">

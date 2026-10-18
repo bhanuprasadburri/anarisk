@@ -59,7 +59,7 @@ SessionLocal = get_sessionmaker()
 
 PASSWORD = "Demo-Passw0rd!"
 ADMIN_PASSWORD = settings.bootstrap_admin_password
-ORG_SLUG = "nimbus-ninjas"
+ORG_SLUG = "anarisk"
 NOW = dt.datetime.now(dt.timezone.utc)
 
 BRANDS = {
@@ -164,7 +164,7 @@ def main() -> None:
         print(f"truncated {len(Base.metadata.tables)} tables")
 
         # ---- organization + users -------------------------------------------------
-        org = Organization(name="Nimbus Ninjas", slug=ORG_SLUG, description="Digital risk protection demo tenant (synthetic data)", is_active=True)
+        org = Organization(name="AnaRisk", slug=ORG_SLUG, description="Digital risk protection demo tenant (synthetic data)", is_active=True)
         db.add(org)
         db.flush()
 
@@ -179,7 +179,10 @@ def main() -> None:
         users: dict[str, User] = {}
         for email, name, role, pw in user_specs:
             u = User(email=email, full_name=name, role=role, organization_id=org.id,
-                     hashed_password=hash_password(pw), is_active=True)
+                     hashed_password=hash_password(pw), is_active=True,
+                     # Demo accounts are pre-verified: they have known passwords and no real
+                     # inbox, so requiring email verification would lock them out of the demo.
+                     email_verified_at=dt.datetime.now(dt.UTC))
             db.add(u)
             users[email.split("@")[0]] = u
         db.flush()

@@ -1,17 +1,23 @@
-# Anarisk — Nimbus Ninjas
+# AnaRisk
 
-Nimbus Ninjas is a digital threat intelligence & investigation platform for identifying impersonation, lookalike websites, fake social profiles, and suspicious mobile apps. The project combines a FastAPI backend, a PostgreSQL data model, graph-based relationship analysis, and a React frontend to help investigators assess risk, review evidence, and manage response cases.
+AnaRisk is a digital threat intelligence & investigation platform for identifying impersonation, lookalike websites, fake social profiles, and suspicious mobile apps. The project combines a FastAPI backend, a PostgreSQL data model, graph-based relationship analysis, and a React frontend to help investigators assess risk, review evidence, and manage response cases.
 
 ## Documentation
 
 | Document | Contents |
 |---|---|
-| [docs/API.md](docs/API.md) | Full API reference (generated from the live OpenAPI schema — 97 endpoints) |
+| [docs/API.md](docs/API.md) | Full API reference (generated from the live OpenAPI schema — 107 endpoints / 18 tags) |
 | [docs/STATUS.md](docs/STATUS.md) | Feature checklist, verification evidence, and known limitations |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md) | Email OTP verification & password reset: Resend / Gmail SMTP setup, testing, troubleshooting |
 | [PLAN.md](PLAN.md) | Architecture, routes, and design-system plan |
-| Interactive API docs | http://localhost:8000/docs (Swagger) once the API is running |
+| Interactive API docs | http://127.0.0.1:8000/docs (Swagger) once the API is running |
 
-This repository implements the Nimbus Ninjas architecture for digital risk protection and case review:
+> **Note on `127.0.0.1` vs `localhost`:** on machines where local DNS resolution of
+> `localhost` is slow or broken (as in this build environment), address everything via
+> `127.0.0.1` — database URLs, uvicorn, the Vite dev server (`npx vite --host 127.0.0.1`),
+> and the Vite API proxy target. See [docs/STATUS.md](docs/STATUS.md).
+
+This repository implements the AnaRisk architecture for digital risk protection and case review:
 
 - Digital Surface Collection
 - Detection Engine
@@ -41,6 +47,19 @@ Anarisk helps teams monitor and investigate brand abuse by:
 - Case workflow with assignment, escalation, notes, and resolution tracking
 - Evidence uploads and provenance-aware assessments
 - Security controls including RBAC, tenancy scoping, SSRF protections, and upload validation
+- Email authentication: signup with a crypto-secure 6-digit email OTP (hash-only storage,
+  TTL, attempt lockout, resend cooldown, no account enumeration), single-use
+  password-reset tokens, resend verification — via pluggable transports
+  (`none` dev / SMTP / Resend / memory). See [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)
+  with per-message delivery logs
+- Investigation tools: phishing/URL scanner, suspicious email analyzer, job-offer checker,
+  social profile verifier — each finding carries status, severity, evidence, source, and
+  an explicit limitation (risk ≠ confidence; never fabricated)
+- AI assistant with provider abstraction (OpenAI-compatible or retrieval-only mode),
+  grounding against retrieved platform records with citation validation, and
+  prompt-injection defense
+- Background monitoring scheduler (DB-backed, `FOR UPDATE SKIP LOCKED` claims, retry
+  with backoff, admin notification on repeated failure) driving alerts and watchlists
 - Demo-ready synthetic dataset for local testing and walkthroughs
 
 ## Tech stack
@@ -121,7 +140,31 @@ npm run dev
 ```
 
 Frontend dev server:
-- http://localhost:3000
+- http://127.0.0.1:3000 — `npm run dev` binds `127.0.0.1` explicitly (local `localhost`
+  DNS resolution is unreliable on some machines)
+
+## Environment variables
+
+Backend (set in `backend/.env` or the process environment):
+
+| Variable | Values / default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | `postgresql+psycopg://…` | Database DSN. Use `127.0.0.1` instead of `localhost` if local DNS is slow |
+| `TEST_DATABASE_URL` | `postgresql+psycopg://…` | Database used by pytest (wiped per run) |
+| `ENVIRONMENT` | `development` / `production` | Development exposes `dev_otp` / `dev_reset_token` in API responses; production never does |
+| `EMAIL_PROVIDER` | `none` (default) / `smtp` / `resend` / `memory` | Email transport for the signup OTP and password reset. `none` = no delivery (dev-only `dev_otp` outside production; honest `email_sent=false`). `smtp` needs `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, plus `EMAIL_FROM_ADDRESS` / `EMAIL_FROM_NAME`. `resend` needs `RESEND_API_KEY` + a verified sender domain. `memory` captures messages in-process (tests). Production with no provider → honest 503 on password reset, `delivery_failed` on signup. Setup: [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md) |
+| `OTP_TTL_MINUTES` | `10` (default) | How long a signup verification code stays valid |
+| `OTP_MAX_ATTEMPTS` | `5` (default) | Wrong guesses per code before it is locked out |
+| `RESEND_VERIFICATION_COOLDOWN_SECONDS` | `60` (default) | Per-email throttle on resend (applies uniformly, so it never discloses account existence) |
+| `FRONTEND_URL` | `http://127.0.0.1:3000` | Base URL used in password-reset links |
+| `AI_PROVIDER` | `none` (default) / `openai-compatible` / `memory` | Assistant provider. `none` = retrieval mode (honest status shown in UI). `openai-compatible` needs `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`. Provider errors and malformed output fall back to retrieval mode |
+| `BOOTSTRAP_ADMIN_PASSWORD` | string | Password for the bootstrap admin on seed |
+
+Scheduler: runs in the API process lifespan; configured with `MONITORING_WORKER_ENABLED`
+(default `true`), `MONITORING_INTERVAL_SECONDS` (default `300`), `MONITORING_RETRY_MAX`
+(default `3`), and `MONITORING_BACKOFF_SECONDS` (default `120`). Targets are claimed with
+`FOR UPDATE SKIP LOCKED`, retried with backoff, and admins are notified after repeated
+failure.
 
 ## Demo accounts
 
@@ -147,9 +190,10 @@ This project is designed as a demo and research platform. By default:
 
 ## Backend API summary
 
-The API exposes 97 endpoints across 16 groups (see [docs/API.md](docs/API.md) for the generated reference):
+The API exposes 107 endpoints across 18 groups (see [docs/API.md](docs/API.md) for the generated reference):
 
-- authentication (login, register, forgot/reset password, profile, preferences, change password)
+- authentication (register with email OTP verification, login, forgot/reset password,
+  resend verification code, verify email code, profile, preferences, change password)
 - users, organizations, and role management
 - brands and official references (name, handle, domain, image, app package)
 - digital entities with server-side search, filtering, sorting, and pagination
@@ -157,31 +201,44 @@ The API exposes 97 endpoints across 16 groups (see [docs/API.md](docs/API.md) fo
 - graph analysis (relationship graph, neighbors, clusters, rebuild)
 - workflow-based case management (assignment, escalation, resolution, notes, events, optimistic concurrency)
 - evidence (upload, SHA-256 verification, link/unlink, download, CSV export)
-- notifications (unread counts, mark read)
+- investigation tools (URL/phishing scanner, suspicious email analyzer, job-offer checker,
+  social profile verifier, analysis history) — findings with status/severity/evidence/source/limitation
+- AI assistant (grounded answers with validated citations, provider status, chat history)
+- notifications (unread counts, mark read) and watchlists
 - integrations catalog (7 providers with honest connection status, test/sync/disconnect)
-- monitoring targets for mobile apps (add, pause, sync, remove)
+- monitoring targets (add, pause, sync, remove) + DB-backed background scheduler
 - reports (overview aggregates, risk trend, CSV export)
 - dashboard metrics and audit history
 
 ## Frontend
 
-The React app is a 12-interface premium light-theme workspace: Login (with registration and
-password recovery), Overview Dashboard, Digital Assets, Entity Details, Threat Intelligence,
-Risk Graph, Investigations (case list + case workspace), Mobile Apps, Evidence Center,
-Reports & Analytics, and Settings (profile, workspace, team, brands, integrations,
-monitoring, notifications, security). Every control talks to the real API — there is no
-mock data layer and no fake "connected" integration states.
+The React app is a 15-interface premium light-theme workspace: Login (with registration,
+OTP verification states — sending / sent / dev code / delivery failure / resend cooldown —
+and password recovery), Verify Email (6-digit code entry), Overview Dashboard,
+Digital Assets, Entity Details, Threat Intelligence, Risk Graph, Investigations (case list +
+case workspace), Investigate (4 analysis tools + run history), AI Assistant, Alerts
+(notifications + watchlists), Mobile Apps, Evidence Center, Reports & Analytics, and
+Settings (profile, workspace, team, brands, integrations, monitoring, notifications,
+security). Every control talks to the real API — there is no mock data layer and no fake
+"connected" integration states.
 
 ## Verification and tests
 
-Backend tests are available:
+Backend test suite (330 tests, exit 0 in this environment):
 
 ```bash
 cd backend
-pytest
+# point TEST_DATABASE_URL at a disposable Postgres DB first
+pytest -q
 ```
 
-The project includes automated tests covering authentication, RBAC, detection logic, graph analysis, case workflows, and migration safety.
+The suite covers authentication, email OTP verification (delivery, invalid/expired/locked
+codes, reuse, cooldown, rate limits, provider failures, no enumeration) and password reset, RBAC, detection logic, graph
+analysis, case workflows, evidence, integrations, monitoring, the background scheduler,
+the four investigation tools (network calls monkeypatched for determinism), the AI
+assistant (grounding, citation validation, prompt-injection defense, provider fallback),
+and migration safety. Frontend verification is `npx tsc --noEmit` + `npm run build` +
+browser E2E against the live API. Full evidence: [docs/STATUS.md](docs/STATUS.md).
 
 ## License
 

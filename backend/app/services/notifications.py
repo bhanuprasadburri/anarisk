@@ -20,7 +20,10 @@ log = logging.getLogger(__name__)
 
 
 def admins(db: Session) -> list[uuid.UUID]:
-    return list(db.scalars(select(User.id).where(User.role == UserRole.ADMIN, User.is_active.is_(True))))
+    from app.services.scheduler import SYSTEM_USER_EMAIL  # local import: avoids a module cycle
+
+    return list(db.scalars(select(User.id).where(
+        User.role == UserRole.ADMIN, User.is_active.is_(True), User.email != SYSTEM_USER_EMAIL)))
 
 
 def notify(

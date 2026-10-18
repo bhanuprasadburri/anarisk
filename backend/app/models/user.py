@@ -35,6 +35,7 @@ class User(TimestampMixin, Base):
         ForeignKey("organizations.id", ondelete="SET NULL"), index=True
     )
     last_login_at: Mapped[datetime | None] = tz_col()
+    email_verified_at: Mapped[datetime | None] = tz_col()
     preferences: Mapped[dict[str, Any] | None] = mapped_column(default=None)  # UI / notification preferences (JSONB)
 
     organization: Mapped[Organization | None] = relationship(back_populates="users", lazy="joined")

@@ -1,9 +1,22 @@
-"""Generate docs/API.md from the live OpenAPI spec (run with the API server up)."""
+"""Generate docs/API.md from the live OpenAPI spec (run with the API server up).
+
+The output path is derived from this file's location so the script works regardless of
+where the repo is checked out, and the API root is configurable via NIMBUS_API_ROOT.
+"""
 import collections
 import json
+import os
 import urllib.request
+from pathlib import Path
 
-spec = json.load(urllib.request.urlopen("http://127.0.0.1:8000/openapi.json"))
+API_ROOT = os.environ.get("NIMBUS_API_ROOT", "http://127.0.0.1:8000/api/v1").rstrip("/")
+REPO_DOCS = Path(__file__).resolve().parents[2] / "docs" / "API.md"
+# FastAPI serves the schema at the app root, not under the /api/v1 router prefix.
+SPEC_URL = os.environ.get(
+    "NIMBUS_SPEC_URL", API_ROOT.rsplit("/api/v1", 1)[0] + "/openapi.json"
+)
+
+spec = json.load(urllib.request.urlopen(SPEC_URL))
 groups: dict[str, list[tuple[str, str, str]]] = collections.OrderedDict()
 total = 0
 for path, ops in sorted(spec["paths"].items()):
@@ -15,10 +28,10 @@ for path, ops in sorted(spec["paths"].items()):
         groups.setdefault(tag, []).append((method.upper(), path, op.get("summary", "") or ""))
 
 lines = [
-    "# Nimbus Ninjas — API Reference",
+    "# AnaRisk — API Reference",
     "",
     "Generated from the live OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).",
-    f"Base URL: `http://localhost:8000/api/v1` — **{total} endpoints** across {len(groups)} tags.",
+    f"Base URL: `{API_ROOT}` — **{total} endpoints** across {len(groups)} tags.",
     "",
     "Authentication: `Authorization: Bearer <JWT>` (obtain via `POST /auth/login`).",
     "Role checks are enforced server-side per endpoint; unauthenticated requests return 401,",
@@ -36,6 +49,7 @@ for tag, items in groups.items():
     lines.append("")
 
 out = "\n".join(lines) + "\n"
-with open(r"C:\Users\bhanu\Desktop\AnaRisk\Anarisk\docs\API.md", "w", encoding="utf-8") as f:
+REPO_DOCS.parent.mkdir(parents=True, exist_ok=True)
+with open(REPO_DOCS, "w", encoding="utf-8") as f:
     f.write(out)
-print(f"OK: {total} endpoints, {len(groups)} tags -> docs/API.md")
+print(f"OK: {total} endpoints, {len(groups)} tags -> {REPO_DOCS}")

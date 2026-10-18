@@ -284,7 +284,7 @@ export const ReportsPage: React.FC = () => {
     if (!overview) return;
     setExporting('pdf');
     try {
-      await reportService.exportPdfHtml(overview, 'Nimbus Ninjas Report');
+      await reportService.exportPdfHtml(overview, 'AnaRisk Report');
       toast.info(
         'Print-ready report downloaded',
         "Open it and use your browser's Save as PDF to export the final document."

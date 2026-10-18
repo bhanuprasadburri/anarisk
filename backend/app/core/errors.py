@@ -53,6 +53,11 @@ class UnauthorizedError(DomainError):
     code = "unauthorized"
 
 
+class ServiceUnavailableError(DomainError):
+    status_code = 503
+    code = "service_unavailable"
+
+
 def _body(code: str, message: str, details=None) -> dict:
     return {"error": {"code": code, "message": message, "details": details}}
 

@@ -7,6 +7,7 @@
 import os
 import tempfile
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.engine import make_url
 
@@ -17,6 +18,8 @@ _UPLOADS = tempfile.mkdtemp(prefix="nn_test_uploads_")
 os.environ.update({
     "ENVIRONMENT": "test", "DATABASE_URL": _TEST_URL, "SECRET_KEY": "test-secret-key-test-secret-key-0123456789", "UPLOAD_DIR": _UPLOADS,
     "RATE_LIMIT_ENABLED": "false", "BCRYPT_ROUNDS": "4", "ALLOW_PUBLIC_REGISTRATION": "true", "URL_FETCH_ENABLED": "false", "DEBUG": "false",
+    # Hermetic: never read the developer's .env email settings; individual tests opt in to "memory".
+    "EMAIL_PROVIDER": "none",
 })
 
 import io  # noqa: E402
@@ -35,6 +38,7 @@ from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base, Organization, User  # noqa: E402
 from app.models.enums import UserRole  # noqa: E402
+from app.services.users import reset_resend_cooldowns  # noqa: E402
 
 PASSWORD = "Test-Passw0rd!"
 
@@ -77,6 +81,7 @@ def _migrated():
 @pytest.fixture(autouse=True)
 def _clean():
     reset_rate_limits()
+    reset_resend_cooldowns()
     if not _db_is_available():
         yield
         return
@@ -123,8 +128,11 @@ class Factory:
         return o
 
     def user(self, role: UserRole, org: Organization | None = None, email: str | None = None, active: bool = True) -> User:
+        # Factory users stand in for admin/seed-created accounts: created already verified,
+        # exactly like real accounts outside the public-OTP signup flow.
         u = User(email=email or f"{role.value}-{uuid.uuid4().hex[:8]}@test.example", full_name=f"{role.value} user", role=role,
-                 organization_id=org.id if org else None, hashed_password=hash_password(PASSWORD), is_active=active)
+                 organization_id=org.id if org else None, hashed_password=hash_password(PASSWORD), is_active=active,
+                 email_verified_at=datetime.now(UTC))
         self.db.add(u)
         self.db.commit()
         return u

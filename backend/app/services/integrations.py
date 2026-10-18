@@ -80,7 +80,7 @@ CATALOG: list[dict[str, Any]] = [
         "requires_credentials": False,
         "config_fields": [
             {"key": "target_url", "label": "Target URL", "type": "url", "required": True, "placeholder": "https://suspect-example.com/page"},
-            {"key": "user_agent", "label": "User agent", "type": "text", "required": False, "placeholder": "NimbusNinjas-Checker/1.0"},
+            {"key": "user_agent", "label": "User agent", "type": "text", "required": False, "placeholder": "AnaRisk-Checker/1.0"},
             {"key": "method", "label": "Request method", "type": "select", "required": False, "options": ["GET", "HEAD"], "placeholder": "GET"},
         ],
     },
@@ -291,7 +291,7 @@ def _test_web(config: dict[str, Any]) -> tuple[bool, str]:
     except DomainError as exc:
         return False, f"SSRF guard rejected the target URL: {exc.message}"
     method = config.get("method") or "GET"
-    headers = {"User-Agent": config.get("user_agent") or "NimbusNinjas-Integration-Test/1.0"}
+    headers = {"User-Agent": config.get("user_agent") or "AnaRisk-Integration-Test/1.0"}
     try:
         with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS, follow_redirects=False, headers=headers) as client:
             with client.stream(method, url) as resp:
