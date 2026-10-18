@@ -12,8 +12,6 @@ import base64
 import hashlib
 import json
 import logging
-import socket
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
@@ -268,9 +266,8 @@ def _require_configured(db: Session, actor: User, key: str) -> tuple[dict, Integ
 def _test_dns(config: dict[str, Any]) -> tuple[bool, str]:
     domain = (config.get("check_domain") or "example.com").strip() or "example.com"
     try:
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            infos = pool.submit(socket.getaddrinfo, domain, None).result(timeout=HTTP_TIMEOUT_SECONDS)
-        addrs = list(dict.fromkeys(i[4][0] for i in infos))
+        from app.services.url_inspector import default_resolver
+        addrs = default_resolver(domain, 443)
         if not addrs:
             return False, f"DNS lookup for {domain} returned no addresses."
         return True, f"Live DNS resolution succeeded for {domain}: {', '.join(addrs[:4])} (real system resolver lookup)."
@@ -279,34 +276,22 @@ def _test_dns(config: dict[str, Any]) -> tuple[bool, str]:
 
 
 def _test_web(config: dict[str, Any]) -> tuple[bool, str]:
-    import httpx
-
-    from app.services.url_inspector import validate_destination
+    from app.services.url_inspector import SafeFetcher
 
     url = (config.get("target_url") or "").strip()
     if not url:
         return False, "No target URL configured."
-    try:
-        validate_destination(url)  # SSRF guard: http(s), public addresses only, allowed ports
-    except DomainError as exc:
-        return False, f"SSRF guard rejected the target URL: {exc.message}"
     method = config.get("method") or "GET"
-    headers = {"User-Agent": config.get("user_agent") or "AnaRisk-Integration-Test/1.0"}
     try:
-        with httpx.Client(timeout=HTTP_TIMEOUT_SECONDS, follow_redirects=False, headers=headers) as client:
-            with client.stream(method, url) as resp:
-                size = 0
-                for chunk in resp.iter_bytes():
-                    size += len(chunk)
-                    if size >= MAX_FETCH_BYTES:
-                        break
-                status = resp.status_code
-                version = resp.http_version
+        result = SafeFetcher(method=method, user_agent=config.get("user_agent") or "AnaRisk-Integration-Test/1.0").fetch(url)
+        size, status = result.size_bytes, result.status
         ok = status < 400
-        msg = f"Real {method} request to {url} completed: HTTP {status} ({version}, {min(size, MAX_FETCH_BYTES)} bytes read)."
+        msg = f"Real {method} request to {url} completed: HTTP {status} ({size} bytes read)."
         if not ok:
             msg += " The server returned an error status - the target may be down or blocking us."
         return ok, msg
+    except DomainError as exc:
+        return False, f"Real {method} request was blocked or failed ({exc.code}: {exc.message})."
     except Exception as exc:
         return False, f"Real {method} request to {url} failed ({type(exc).__name__}: {exc})."
 

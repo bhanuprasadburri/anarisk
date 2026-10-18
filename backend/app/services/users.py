@@ -219,6 +219,8 @@ def _issue_otp(db: Session, user: User) -> str:
     """Create a fresh single-use OTP; invalidates any outstanding codes for this user.
     The plaintext code exists only in the return value — never in the DB or logs."""
     s = get_settings()
+    # Serialize concurrent resends for this account so they cannot leave two live codes.
+    db.scalar(select(User).where(User.id == user.id).with_for_update(of=User))
     code = _generate_otp()
     now = datetime.now(UTC)
     db.execute(update(EmailVerificationToken).where(
@@ -446,7 +448,9 @@ def forgot_password(db: Session, email: str) -> dict:
 def reset_password(db: Session, token: str, new_password: str) -> User:
     invalid = DomainError("This reset link is invalid or has expired; request a new one",
                           code="invalid_or_expired_token", status_code=400)
-    row = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == _token_hash(token)))
+    row = db.scalar(select(PasswordResetToken).where(
+        PasswordResetToken.token_hash == _token_hash(token)
+    ).with_for_update())
     now = datetime.now(UTC)
     if row is None or row.used_at is not None or row.expires_at <= now:
         raise invalid

@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     ai_provider: str = "none"
     ai_api_key: str = ""
     ai_base_url: str = "https://api.openai.com/v1"
-    ai_model: str = ""
+    ai_model: str = "gpt-4o-mini"
     ai_timeout_seconds: float = 30.0
     ai_max_tokens: int = 1500
 

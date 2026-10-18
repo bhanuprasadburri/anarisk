@@ -6,6 +6,13 @@ Empty databases return zeros and empty arrays - never an error.
 """
 from __future__ import annotations
 
+
+def _csv_safe(value):
+    """Prevent spreadsheet formula execution for untrusted exported values."""
+    if isinstance(value, str) and value.lstrip(" \t\r\n")[:1] in {"=", "+", "-", "@"}:
+        return "'" + value
+    return value
+
 import csv
 import io
 import uuid
@@ -317,6 +324,6 @@ def export_csv(db: Session, actor, report: str, from_: str | None, to: str | Non
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(columns)
-    writer.writerows(rows)
+    writer.writerows([[_csv_safe(value) for value in row] for row in rows])
     filename = f"anarisk-{report}-{date.today().isoformat()}.csv"
     return filename, buf.getvalue()

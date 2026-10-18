@@ -14,6 +14,7 @@ from app.core.config import get_settings
 
 _hits: dict[str, deque[float]] = defaultdict(deque)
 _lock = Lock()
+_last_cleanup = 0.0
 
 
 def reset_rate_limits() -> None:
@@ -35,7 +36,16 @@ def rate_limit(bucket: str, setting_name: str):
             s.trust_proxy_headers,
         ) or "unknown"
         key, now = f"{bucket}:{ip}", time.monotonic()
+        global _last_cleanup
         with _lock:
+            if len(_hits) > 10_000 and now - _last_cleanup > 60:
+                cutoff = now - 60
+                for stale_key, hits in list(_hits.items()):
+                    while hits and hits[0] <= cutoff:
+                        hits.popleft()
+                    if not hits:
+                        _hits.pop(stale_key, None)
+                _last_cleanup = now
             q = _hits[key]
             while q and now - q[0] > 60:
                 q.popleft()

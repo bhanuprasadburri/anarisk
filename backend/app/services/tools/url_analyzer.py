@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import datetime as _dt
 import ipaddress
-import socket
 import ssl
 from typing import Any
 
@@ -25,8 +24,8 @@ from app.utils.urls import from_idna, parse_url, registrable_domain
 
 def _resolve_host(host: str) -> tuple[list[str] | None, str | None]:
     try:
-        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
-        ips = sorted({i[4][0] for i in infos})
+        from app.services.url_inspector import default_resolver
+        ips = sorted(default_resolver(host, 443))
         return ips, None
     except OSError as exc:
         return None, f"{type(exc).__name__}: {exc}"
@@ -70,8 +69,11 @@ def _is_non_public(ip_str: str) -> bool:
 def tls_certificate_check(host: str, port: int = 443) -> Finding:
     """Inspect the TLS certificate presented for `host` without sending any HTTP request."""
     try:
-        raw = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
-        target_ip = sorted({i[4] for i in raw}, key=lambda a: 0 if ":" not in a[0] else 1)[0][0]
+        from app.services.url_inspector import default_resolver
+        addresses = default_resolver(host, port)
+        if not addresses:
+            raise OSError("DNS lookup returned no addresses")
+        target_ip = sorted(addresses, key=lambda a: 0 if ":" not in a else 1)[0]
         if _is_non_public(target_ip):
             return Finding(
                 check="tls_certificate", title="TLS certificate", status="unable_to_verify", severity="unknown",

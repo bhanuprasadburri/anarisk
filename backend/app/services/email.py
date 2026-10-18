@@ -15,6 +15,7 @@ was sent when it was not.
 from __future__ import annotations
 
 import logging
+from html import escape
 import smtplib
 import ssl
 from dataclasses import dataclass
@@ -97,7 +98,12 @@ class SMTPTransport(BaseTransport):
                     client.login(s.smtp_username, s.smtp_password)
                 client.send_message(msg)
             finally:
-                client.quit()
+                # Delivery already succeeded at send_message; a QUIT failure must not
+                # cause the caller to retry and send a duplicate message.
+                try:
+                    client.quit()
+                except (smtplib.SMTPException, OSError):
+                    log.warning("SMTP connection close failed after send")
         except (smtplib.SMTPException, OSError) as exc:  # SMTPAuthenticationError etc.
             raise EmailTransportError(f"SMTP send failed: {exc}") from exc
 
@@ -246,16 +252,17 @@ _BASE_STYLE = (
 
 def _wrap(title: str, paragraphs: list[str], button_label: str | None = None, button_url: str | None = None) -> str:
     body = "".join(f"<p>{p}</p>" for p in paragraphs)
-    btn = f'<p><a class="btn" href="{button_url}">{button_label}</a></p>' if button_label and button_url else ""
-    url = f'<p class="link">If the button does not work, open this link:<br>{button_url}</p>' if button_url else ""
+    safe_url = escape(button_url, quote=True) if button_url else ""
+    btn = f'<p><a class="btn" href="{safe_url}">{escape(button_label)}</a></p>' if button_label and button_url else ""
+    url = f'<p class="link">If the button does not work, open this link:<br>{safe_url}</p>' if button_url else ""
     return (
-        f"<!doctype html><html><body><div class='card'><h1>{title}</h1>{body}{btn}{url}"
+        f"<!doctype html><html><body><div class='card'><h1>{escape(title)}</h1>{body}{btn}{url}"
         f"<p class='foot'>AnaRisk - Digital Risk Protection. If you did not create this account you can ignore this email.</p>"
         f"</div></body></html>"
     )
 
 
-def render_otp_email(name: str, code: str, ttl_minutes: int) -> tuple[str, str]:
+def render_otp_email(name: str, code: str, ttl_minutes: int) -> tuple[str, str, str]:
     """Verification email carrying the 6-digit signup OTP. The code is the ONLY secret in
     the message; callers must never log it."""
     subject = "Your AnaRisk verification code"
@@ -267,14 +274,14 @@ def render_otp_email(name: str, code: str, ttl_minutes: int) -> tuple[str, str]:
     )
     html = _wrap(
         "Verify your email",
-        [f"Hello {name},", "Your verification code is:",
+        [f"Hello {escape(name)},", "Your verification code is:",
          f"<strong style='display:inline-block;font-size:28px;letter-spacing:8px;color:#F5F3EE'>{code}</strong>",
          f"This code expires in {ttl_minutes} minutes and can be used once."],
     )
     return subject, text, html
 
 
-def render_registration_notice_email(name: str | None, attempted: str) -> tuple[str, str]:
+def render_registration_notice_email(name: str | None, attempted: str) -> tuple[str, str, str]:
     """Sent when a signup is attempted for an address that already has an account.
     Deliberately reveals nothing about account state to the caller; the notice itself
     only goes to the address owner."""
@@ -285,12 +292,12 @@ def render_registration_notice_email(name: str | None, attempted: str) -> tuple[
         "If this was you, the account already exists — just sign in (or reset your password).\n"
         "If it was not you, no action is needed; the attempt did not create anything.\n"
     )
-    html = _wrap("Signup attempt", [who, f"A signup was recently attempted for <strong>{attempted}</strong> on AnaRisk.",
+    html = _wrap("Signup attempt", [escape(who), f"A signup was recently attempted for <strong>{escape(attempted)}</strong> on AnaRisk.",
                                     "If this was you, just sign in. If not, you can ignore this message."])
     return subject, text, html
 
 
-def render_reset_email(name: str, link: str, ttl_minutes: int) -> tuple[str, str]:
+def render_reset_email(name: str, link: str, ttl_minutes: int) -> tuple[str, str, str]:
     subject = "Reset your password - AnaRisk"
     text = (
         f"Hello {name},\n\nA password reset was requested for your account.\n"
@@ -299,14 +306,14 @@ def render_reset_email(name: str, link: str, ttl_minutes: int) -> tuple[str, str
     )
     html = _wrap(
         "Reset your password",
-        [f"Hello {name},", "A password reset was requested for your account.",
+        [f"Hello {escape(name)},", "A password reset was requested for your account.",
          f"This link expires in {ttl_minutes} minutes and can be used once."],
         "Reset password", link,
     )
     return subject, text, html
 
 
-def render_generic_email(name: str, title: str, body: str) -> tuple[str, str]:
+def render_generic_email(name: str, title: str, body: str) -> tuple[str, str, str]:
     text = f"Hello {name},\n\n{body}\n"
-    html = _wrap(title, [f"Hello {name},", body])
+    html = _wrap(title, [f"Hello {escape(name)},", escape(body)])
     return title, text, html

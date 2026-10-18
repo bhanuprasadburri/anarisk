@@ -79,7 +79,9 @@ services:
         value: AnaRisk
       # ---- AI assistant (optional; retrieval mode when provider=none) ----
       - key: AI_PROVIDER
-        value: openai-compatible # set to `openai-compatible` and add AI_API_KEY + AI_MODEL in the dashboard to enable
+        value: openai-compatible
+      - key: AI_API_KEY
+        sync: false # provide the rotated provider key in the Render Dashboard
       # ---- background monitoring scheduler (single instance) ----
       - key: MONITORING_WORKER_ENABLED
         value: "true"

@@ -59,8 +59,24 @@ def is_blocked_ip(ip_str: str) -> bool:
 
 
 def default_resolver(host: str, port: int) -> list[str]:
-    infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-    return list(dict.fromkeys(i[4][0] for i in infos))
+    # getaddrinfo has no portable timeout and may block a request indefinitely.
+    # dnspython enforces a finite lifetime for each query.
+    import dns.exception
+    import dns.resolver
+
+    resolver = dns.resolver.Resolver()
+    resolver.timeout = 2.0
+    addresses: list[str] = []
+    errors: list[Exception] = []
+    for record_type in ("A", "AAAA"):
+        try:
+            answers = resolver.resolve(host, record_type, lifetime=3.0, raise_on_no_answer=False)
+            addresses.extend(str(answer) for answer in answers)
+        except (dns.exception.DNSException, OSError) as exc:
+            errors.append(exc)
+    if not addresses and errors:
+        raise OSError("DNS resolution failed") from errors[-1]
+    return list(dict.fromkeys(addresses))
 
 
 @dataclass
@@ -135,10 +151,15 @@ class _PinnedHTTPS(http.client.HTTPSConnection):
 
 
 class SafeFetcher:
-    def __init__(self, settings: Settings | None = None, resolver=None, ip_blocker: Callable[[str], bool] = is_blocked_ip):
+    def __init__(self, settings: Settings | None = None, resolver=None, ip_blocker: Callable[[str], bool] = is_blocked_ip,
+                 method: str = "GET", user_agent: str = "AnaRisk-DRP-Inspector/1.0"):
         self.s = settings or get_settings()
         self.resolver = resolver
         self.ip_blocker = ip_blocker
+        if method not in {"GET", "HEAD"}:
+            raise ValueError("method must be GET or HEAD")
+        self.method = method
+        self.user_agent = user_agent[:200]
 
     def _request(self, target: Target, deadline: float):
         """One bounded GET. Returns (status, headers, body_bytes, truncated). Overridable in tests."""
@@ -148,9 +169,11 @@ class SafeFetcher:
         conn = cls(p.host, target.port, target.ip, timeout)
         try:
             path = (p.path or "/") + (f"?{p.query}" if p.query else "")
-            conn.request("GET", path, headers={"User-Agent": "AnaRisk-DRP-Inspector/1.0", "Accept": "text/html,*/*;q=0.5", "Accept-Encoding": "identity", "Connection": "close"})
+            conn.request(self.method, path, headers={"User-Agent": self.user_agent, "Accept": "text/html,*/*;q=0.5", "Accept-Encoding": "identity", "Connection": "close"})
             resp = conn.getresponse()
             body, truncated = b"", False
+            if self.method == "HEAD":
+                return resp.status, {k.lower(): v for k, v in resp.getheaders()}, body, truncated
             while True:
                 if time.monotonic() > deadline:
                     truncated = True

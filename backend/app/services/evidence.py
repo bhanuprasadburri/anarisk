@@ -7,6 +7,13 @@ Verification status semantics (never fabricated):
 """
 from __future__ import annotations
 
+
+def _csv_safe(value):
+    """Prevent spreadsheet formula execution for untrusted exported values."""
+    if isinstance(value, str) and value.lstrip(" \t\r\n")[:1] in {"=", "+", "-", "@"}:
+        return "'" + value
+    return value
+
 import hashlib
 import uuid
 from datetime import UTC, datetime
@@ -340,7 +347,7 @@ def export_csv(
     w = csv.writer(buf)
     w.writerow(CSV_COLUMNS)
     for ev in rows:
-        w.writerow([ev.id, ev.kind.value, ev.title, ev.entity.display_name if ev.entity else "",
+        w.writerow([_csv_safe(v) for v in [ev.id, ev.kind.value, ev.title, ev.entity.display_name if ev.entity else "",
                     ev.sha256 or "", ev.size_bytes or "", verification_status(ev), ev.provenance.value,
-                    " ".join(by_case.get(ev.id, [])), ev.created_at])
+                    " ".join(by_case.get(ev.id, [])), ev.created_at]])
     return f"anarisk-evidence-{datetime.now(UTC).date().isoformat()}.csv", buf.getvalue()
