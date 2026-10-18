@@ -1,4 +1,6 @@
 fastapi==0.115.14
+# imported directly by app/core/errors.py (exception handlers); pin the transitive dep
+starlette==0.46.2
 uvicorn[standard]==0.32.1
 SQLAlchemy==2.0.54
 alembic==1.14.1
@@ -8,6 +10,10 @@ psycopg[binary]==3.2.13
 PyJWT==2.10.1
 bcrypt==4.2.1
 networkx==3.4.2
+# DNS lookups for the investigation tools (SPF/DMARC/MX checks in the URL & email analyzers).
+# Missing from this file previously: the tools degraded to "unable_to_verify" in production.
+dnspython==2.9.0
+
 rapidfuzz==3.11.0
 Pillow==11.3.0
 ImageHash==4.3.2

@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     smtp_use_ssl: bool = False
     resend_api_key: str = ""
     resend_api_base_url: str = "https://api.resend.com"
-    email_from_address: str = "noreply@nimbus.local"
+    email_from_address: str = "bhanuburri28@gmail.com"
     email_from_name: str = "AnaRisk"
     frontend_url: str = "http://localhost:3000"
     email_max_retries: int = 1
@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     login_rate_limit_per_minute: int = 10
     register_rate_limit_per_minute: int = 5
     analyze_rate_limit_per_minute: int = 60
+    # Honour X-Forwarded-For when deriving the client IP (rate limiting + audit rows).
+    # Required behind a reverse proxy (Render) where request.client is the proxy; set false
+    # only when the service is directly exposed and clients could spoof the header.
+    trust_proxy_headers: bool = True
 
     # ---- uploads ----
     upload_dir: str = "./uploads"
@@ -158,6 +162,17 @@ class Settings(BaseSettings):
     url_fetch_max_redirects: int = 3
     url_fetch_allowed_ports: list[int] = [80, 443]
     url_fetch_domain_allowlist: list[str] = []  # if non-empty, only these registrable domains may be fetched
+
+    @field_validator("database_url", "test_database_url", mode="before")
+    @classmethod
+    def _normalize_database_urls(cls, v):
+        """Accept the URLs providers actually hand out (postgres://, postgresql:// without a
+        driver, psycopg2 URLs) by coercing them to the psycopg 3 driver this build ships.
+        Without this, engine creation/connect explodes on the first DB-backed request while
+        the DB-less /health check keeps passing (\"deploy OK, login 500\")."""
+        from app.db.url import normalize_database_url
+
+        return normalize_database_url(v) if isinstance(v, str) else v
 
     @field_validator("debug", mode="before")
     @classmethod

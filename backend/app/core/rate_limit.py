@@ -27,7 +27,13 @@ def rate_limit(bucket: str, setting_name: str):
         if not s.rate_limit_enabled:
             return
         limit = getattr(s, setting_name)
-        ip = request.client.host if request.client else "unknown"
+        from app.core.context import client_ip
+
+        ip = client_ip(
+            request.headers.get("x-forwarded-for"),
+            request.client.host if request.client else None,
+            s.trust_proxy_headers,
+        ) or "unknown"
         key, now = f"{bucket}:{ip}", time.monotonic()
         with _lock:
             q = _hits[key]

@@ -17,7 +17,11 @@ target_metadata = Base.metadata
 
 
 def _url() -> str:
-    return config.get_main_option("sqlalchemy.url") or get_settings().database_url
+    from app.db.url import normalize_database_url
+
+    # Normalise so migrations work with the provider-style URLs (postgres:// …) operators
+    # paste into deployment dashboards — the app engine and the migration engine must agree.
+    return normalize_database_url(config.get_main_option("sqlalchemy.url") or get_settings().database_url)
 
 
 def run_migrations_offline() -> None:

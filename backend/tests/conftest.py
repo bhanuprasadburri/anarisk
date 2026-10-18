@@ -14,6 +14,10 @@ from sqlalchemy.engine import make_url
 _TEST_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+psycopg://nimbus:nimbus_dev_pw@localhost:5432/nimbus_test")
 if not make_url(_TEST_URL).database.endswith("_test"):
     raise RuntimeError("Refusing to run tests: database name must end with '_test'")
+
+from app.db.url import normalize_database_url  # noqa: E402  (no settings read at import time)
+
+_TEST_URL = normalize_database_url(_TEST_URL)  # provider-style URLs (postgres:// …) work too
 _UPLOADS = tempfile.mkdtemp(prefix="nn_test_uploads_")
 os.environ.update({
     "ENVIRONMENT": "test", "DATABASE_URL": _TEST_URL, "SECRET_KEY": "test-secret-key-test-secret-key-0123456789", "UPLOAD_DIR": _UPLOADS,

@@ -40,7 +40,16 @@ def require_permission(permission: str):
 
 
 def capture_ip(request: Request) -> None:
-    request_ip.set(request.client.host if request.client else None)
+    from app.core.config import get_settings
+    from app.core.context import client_ip
+
+    request_ip.set(
+        client_ip(
+            request.headers.get("x-forwarded-for"),
+            request.client.host if request.client else None,
+            get_settings().trust_proxy_headers,
+        )
+    )
 
 
 class Pagination:

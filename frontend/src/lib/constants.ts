@@ -1,4 +1,32 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+/**
+ * Resolve the API base URL used by every request.
+ *
+ * - unset            → same-origin `/api/v1` (works behind the Vite proxy and same-origin rewrites)
+ * - origin only      → `https://api-host` becomes `https://api-host/api/v1`
+ *                      (so `VITE_API_BASE_URL=https://my-api.onrender.com` cannot silently
+ *                       produce `/auth/login`-style requests against the wrong host)
+ * - explicit path    → used verbatim, e.g. `https://api.example.com/api/v1`
+ *
+ * Production must set `VITE_API_BASE_URL` to the deployed backend (Render); without it the
+ * app would call its own origin and every API request would fail.
+ */
+function resolveApiBase(raw: string | undefined): string {
+  const trimmed = (raw || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return '/api/v1';
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const path = parsed.pathname.replace(/\/+$/, '');
+      if (!path) return `${trimmed}/api/v1`; // origin only → append the API prefix
+    } catch {
+      // fall through: use the value verbatim
+    }
+    return trimmed;
+  }
+  return trimmed; // relative base (e.g. '/api/v1' or a dev proxy path)
+}
+
+export const API_BASE_URL = resolveApiBase(import.meta.env.VITE_API_BASE_URL);
 
 export const ENTITY_TYPE_LABELS: Record<string, string> = {
   social_profile: 'Social Profile',

@@ -24,6 +24,7 @@ shows connectors as "not configured" rather than pretending they are connected.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import random
 import sys
 import time
@@ -150,6 +151,15 @@ def _ago(days: float, hours: int = 0) -> dt.datetime:
 
 
 def main() -> None:
+    # ---- production safety: this script TRUNCATEs every table --------------------
+    if settings.environment == "production" and os.environ.get("ALLOW_DESTRUCTIVE_SEED") != "true":
+        print(
+            "REFUSING TO SEED: ENVIRONMENT=production.\n"
+            "This script truncates every table first, which would destroy all production data\n"
+            "and replace it with demo accounts that have well-known passwords.\n"
+            "If that is genuinely what you intend, re-run with ALLOW_DESTRUCTIVE_SEED=true."
+        )
+        raise SystemExit(2)
     t0 = time.time()
     db = SessionLocal()
     try:
