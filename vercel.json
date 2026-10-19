@@ -51,7 +51,7 @@
     {
       "source": "/(.*)",
       "destination": {
-        "service": "/index.html"
+        "service": "frontend"
       }
     }
   ]
