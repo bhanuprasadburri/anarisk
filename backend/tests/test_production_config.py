@@ -56,7 +56,7 @@ def test_normalize_is_idempotent_and_leaves_other_dialects_alone():
     assert normalize_database_url(None) is None
 
 
-def test_normalize_adds_tls_only_for_render_hosts():
+def test_normalize_adds_tls_for_providers_that_require_it():
     render = normalize_database_url("postgresql://user:pw@db-abc123.render.com:5432/nimbus")
     assert render.startswith("postgresql+psycopg://user:pw@db-abc123.render.com:5432/nimbus")
     assert "sslmode=require" in render
@@ -66,6 +66,9 @@ def test_normalize_adds_tls_only_for_render_hosts():
     # non-Render hosts are not touched
     plain = normalize_database_url("postgres://u:p@db.example.com:5432/d")
     assert "sslmode" not in plain
+    # Supabase direct and pooled endpoints require TLS too.
+    assert "sslmode=require" in normalize_database_url("postgres://u:p@db.project-ref.supabase.co:5432/postgres")
+    assert "sslmode=require" in normalize_database_url("postgres://u:p@aws-0.pooler.supabase.com:5432/postgres")
 
 
 def test_settings_database_url_is_normalised():

@@ -7,6 +7,7 @@ import { Input, Field } from '../components/ui/input';
 import { useToast } from '../components/ui/toast';
 import { ApiError } from '../services/apiClient';
 import { cn } from '../lib/utils';
+import { supabaseAuthEnabled } from '../lib/supabase';
 
 const FEATURES = [
   {
@@ -188,7 +189,10 @@ export const LoginPage: React.FC = () => {
           deliveryFailed: !res.email_sent && !res.dev_otp,
         });
         if (res.email_sent) {
-          toast.info('Verification code sent', `Enter the 6-digit code we emailed to ${res.email}.`);
+          toast.info(
+            supabaseAuthEnabled ? 'Verification email sent' : 'Verification code sent',
+            supabaseAuthEnabled ? `Open the verification link we emailed to ${res.email}.` : `Enter the 6-digit code we emailed to ${res.email}.`
+          );
         } else if (res.dev_otp) {
           toast.info('No email provider configured', 'No email was sent — use the dev code shown below.');
         } else {
@@ -283,7 +287,7 @@ export const LoginPage: React.FC = () => {
               >
                 Create your account
               </button>{' '}
-              — sign up, verify your email with the 6-digit code we send you, then sign in here.
+              — sign up, verify your email, then sign in here.
             </p>
           )}
 
@@ -358,9 +362,9 @@ export const LoginPage: React.FC = () => {
               </span>
               <h3 className="mt-3 text-[15px] font-bold text-ink">Verification required</h3>
               <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
-                Enter the 6-digit code we emailed to{' '}
-                <code className="rounded bg-white px-1.5 py-0.5 font-semibold">{registered.email}</code> to
-                activate your account. The code expires after a short time and can only be used once.
+                {supabaseAuthEnabled ? 'Open the verification link we emailed to ' : 'Enter the 6-digit code we emailed to '}
+                <code className="rounded bg-white px-1.5 py-0.5 font-semibold">{registered.email}</code>
+                {supabaseAuthEnabled ? ' to activate your account.' : ' to activate your account. The code expires after a short time and can only be used once.'}
               </p>
 
               {registered.deliveryFailed && (
@@ -389,7 +393,7 @@ export const LoginPage: React.FC = () => {
                   size="sm"
                   onClick={() => navigate(`/verify-email?email=${encodeURIComponent(registered.email)}`)}
                 >
-                  Enter code
+                  {supabaseAuthEnabled ? 'Continue verification' : 'Enter code'}
                   <ArrowRight className="ml-1 h-3.5 w-3.5" />
                 </Button>
                 <Button
@@ -399,7 +403,7 @@ export const LoginPage: React.FC = () => {
                   loading={resending}
                   disabled={cooldown > 0}
                 >
-                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+                  {cooldown > 0 ? `Resend in ${cooldown}s` : supabaseAuthEnabled ? 'Resend email' : 'Resend code'}
                 </Button>
                 <Button
                   size="sm"

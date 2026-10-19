@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../lib/constants';
+import { supabase, supabaseAuthEnabled } from '../lib/supabase';
 
 export class ApiError extends Error {
   code: string;
@@ -14,7 +15,12 @@ export class ApiError extends Error {
   }
 }
 
-export function getToken(): string | null {
+export async function getToken(): Promise<string | null> {
+  if (supabaseAuthEnabled && supabase) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return null;
+    return data.session?.access_token || null;
+  }
   return localStorage.getItem('nimbus_auth_token');
 }
 
@@ -32,7 +38,7 @@ export async function checkBackendHealth(): Promise<boolean> {
 }
 
 export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
+  const token = await getToken();
   const headers = new Headers(options.headers || {});
 
   if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
@@ -58,6 +64,7 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
   if (response.status === 401) {
     // session expired / invalid token
     localStorage.removeItem('nimbus_auth_token');
+    if (supabaseAuthEnabled && supabase) void supabase.auth.signOut();
     if (!endpoint.startsWith('/auth/')) {
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login';

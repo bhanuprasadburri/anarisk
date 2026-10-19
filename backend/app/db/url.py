@@ -37,7 +37,7 @@ _SCHEME_ALIASES: dict[str, str] = {
 
 # Render Postgres refuses non-TLS connections; these hosts get sslmode=require when the
 # operator did not already specify an sslmode (a provided value always wins).
-_TLS_REQUIRED_HOST_SUFFIXES = (".render.com",)
+_TLS_REQUIRED_HOST_SUFFIXES = (".render.com", ".supabase.co", ".pooler.supabase.com")
 
 
 def normalize_database_url(url: str) -> str:

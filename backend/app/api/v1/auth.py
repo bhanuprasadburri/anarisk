@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import get_settings
 from app.core.errors import DomainError
 from app.core.rate_limit import rate_limit
 from app.db.session import get_db
@@ -19,6 +20,15 @@ from app.services import users as users_svc
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+def _require_legacy_auth() -> None:
+    if get_settings().supabase_auth_enabled:
+        raise DomainError(
+            "Authentication is managed by Supabase. Use the frontend Supabase Auth flow.",
+            code="supabase_auth_enabled",
+            status_code=410,
+        )
 
 
 def _authenticate_safely(db: Session, email: str, password: str) -> tuple[str, int]:
@@ -46,6 +56,7 @@ def _authenticate_safely(db: Session, email: str, password: str) -> tuple[str, i
                      "whether or not the address already exists — no account enumeration). dev_otp only "
                      "outside production with no email provider configured.")
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
+    _require_legacy_auth()
     return RegisterResponse.model_validate(
         users_svc.register_public(db, body.email, body.full_name, body.password, body.organization_name)
     )
@@ -56,6 +67,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
              summary="Confirm the 6-digit OTP from the verification email (single-use, attempt-limited, "
                      "TTL-bound). Generic 400 on any failure — never reveals whether the address exists.")
 def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)):
+    _require_legacy_auth()
     return users_svc.verify_email(db, body.email, body.code)
 
 
@@ -64,18 +76,21 @@ def verify_email(body: VerifyEmailRequest, db: Session = Depends(get_db)):
              summary="Resend the signup OTP (or a generic notice). Uniform for unknown/verified/pending "
                      "addresses (no enumeration); per-email cooldown; email_sent reports honest delivery.")
 def resend_verification(body: ResendVerificationRequest, db: Session = Depends(get_db)):
+    _require_legacy_auth()
     result = users_svc.resend_verification(db, body.email)
     return ResendVerificationResponse(**result)
 
 
 @router.post("/login", response_model=TokenResponse, dependencies=[Depends(rate_limit("login", "login_rate_limit_per_minute"))], summary="Login with JSON credentials")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
+    _require_legacy_auth()
     token, expires = _authenticate_safely(db, body.email, body.password)
     return TokenResponse(access_token=token, expires_in=expires)
 
 
 @router.post("/token", response_model=TokenResponse, dependencies=[Depends(rate_limit("login", "login_rate_limit_per_minute"))], summary="OAuth2 password form (used by Swagger 'Authorize')")
 def token(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    _require_legacy_auth()
     token, expires = _authenticate_safely(db, form.username, form.password)
     return TokenResponse(access_token=token, expires_in=expires)
 
@@ -87,6 +102,8 @@ def me(user: User = Depends(get_current_user)):
 
 @router.patch("/me", response_model=UserOut, summary="Update your own profile (full name, email, preferences)")
 def update_me(body: UpdateMeRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if get_settings().supabase_auth_enabled and body.email is not None:
+        raise DomainError("Update your email through Supabase Auth so it can be verified.", code="supabase_managed_email", status_code=422)
     return users_svc.update_own_profile(db, user, body)
 
 
@@ -94,6 +111,7 @@ def update_me(body: UpdateMeRequest, user: User = Depends(get_current_user), db:
              dependencies=[Depends(rate_limit("forgot_password", "login_rate_limit_per_minute"))],
              summary="Request a password-reset link. Always 200 - unknown emails behave like known ones (no user enumeration).")
 def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    _require_legacy_auth()
     return users_svc.forgot_password(db, body.email)
 
 
@@ -101,6 +119,7 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
              dependencies=[Depends(rate_limit("reset_password", "login_rate_limit_per_minute"))],
              summary="Set a new password with a valid reset token (400 invalid_or_expired_token otherwise)")
 def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    _require_legacy_auth()
     return users_svc.reset_password(db, body.token, body.new_password)
 
 
@@ -108,4 +127,5 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
              dependencies=[Depends(rate_limit("change_password", "login_rate_limit_per_minute"))],
              summary="Change your password (authenticated; current password required)")
 def change_password(body: ChangePasswordRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _require_legacy_auth()
     return users_svc.change_password(db, user, body.current_password, body.new_password)

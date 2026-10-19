@@ -5,6 +5,7 @@ import { authService } from '../services/authService';
 import { Button } from '../components/ui/button';
 import { Input, Field } from '../components/ui/input';
 import { ApiError } from '../services/apiClient';
+import { supabaseAuthEnabled } from '../lib/supabase';
 
 export const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -46,7 +47,9 @@ export const ForgotPasswordPage: React.FC = () => {
           </span>
           <h1 className="mt-5 text-xl font-extrabold tracking-tight text-ink">Reset your password</h1>
           <p className="mt-1.5 text-[13px] text-muted">
-            Enter the email tied to your account and we'll send a reset link valid for 30 minutes.
+            {supabaseAuthEnabled
+              ? "Enter your account email and we'll send a secure password reset link."
+              : "Enter the email tied to your account and we'll send a reset link valid for 30 minutes."}
           </p>
 
           {error && (

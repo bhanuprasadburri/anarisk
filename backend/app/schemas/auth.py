@@ -106,7 +106,7 @@ class RegisterResponse(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=200)
-    password: str = Field(min_length=1, max_length=256)
+    password: str | None = Field(None, min_length=1, max_length=256)
     role: UserRole
     organization_id: uuid.UUID | None = None
 

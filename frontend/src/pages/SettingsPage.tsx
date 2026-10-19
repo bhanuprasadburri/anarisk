@@ -53,6 +53,7 @@ import { Field, Input, Label, Select, Switch, Textarea } from '../components/ui/
 import { Avatar, CopyButton, FilterSelect, SearchInput, Skeleton } from '../components/ui/misc';
 import { ScoreBar } from '../components/ui/score';
 import { useToast } from '../components/ui/toast';
+import { supabaseAuthEnabled } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { ApiError, apiRequest } from '../services/apiClient';
 import { authService } from '../services/authService';
@@ -226,7 +227,12 @@ const ProfileTab: React.FC = () => {
     try {
       await authService.updateProfile({ full_name: fullName.trim(), email: email.trim() });
       await refreshAuth();
-      toast.success('Profile updated', 'Your name and email were saved.');
+      toast.success(
+        'Profile updated',
+        supabaseAuthEnabled && email.trim().toLowerCase() !== user?.email.toLowerCase()
+          ? 'Your name was saved. Confirm the email change using the link Supabase sent.'
+          : 'Your name and email were saved.'
+      );
     } catch (e) {
       if (e instanceof ApiError && (e.status === 409 || e.code === 'email_taken')) {
         setEmailErr('This email address is already in use by another account.');
@@ -822,7 +828,7 @@ const TeamTab: React.FC = () => {
     const errs: Record<string, string> = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invEmail.trim())) errs.email = 'Enter a valid email address';
     if (!invName.trim()) errs.full_name = 'Full name is required';
-    if (invPassword.length < 8) errs.password = 'Password must be at least 8 characters';
+    if (!supabaseAuthEnabled && invPassword.length < 8) errs.password = 'Password must be at least 8 characters';
     setInvErrs(errs);
     if (Object.keys(errs).length > 0) return;
     setInvSaving(true);
@@ -830,11 +836,14 @@ const TeamTab: React.FC = () => {
       await settingsService.createUser({
         email: invEmail.trim(),
         full_name: invName.trim(),
-        password: invPassword,
+        password: supabaseAuthEnabled ? undefined : invPassword,
         role: invRole,
         organization_id: invOrg || undefined,
       });
-      toast.success('User invited', `${invEmail.trim()} can now sign in.`);
+      toast.success(
+        supabaseAuthEnabled ? 'Invitation sent' : 'User created',
+        supabaseAuthEnabled ? `Supabase sent an invitation to ${invEmail.trim()}.` : `${invEmail.trim()} can now sign in.`
+      );
       setInviteOpen(false);
       setInvEmail('');
       setInvName('');
@@ -1086,16 +1095,18 @@ const TeamTab: React.FC = () => {
           <Field label="Full name" error={invErrs.full_name || null} required htmlFor="inv-name">
             <Input id="inv-name" value={invName} onChange={(e) => setInvName(e.target.value)} className={invErrs.full_name ? 'border-danger' : undefined} />
           </Field>
-          <Field label="Password" error={invErrs.password || null} required htmlFor="inv-password" hint="Minimum 8 characters.">
-            <Input
-              id="inv-password"
-              type="password"
-              value={invPassword}
-              onChange={(e) => setInvPassword(e.target.value)}
-              className={invErrs.password ? 'border-danger' : undefined}
-              autoComplete="new-password"
-            />
-          </Field>
+          {!supabaseAuthEnabled && (
+            <Field label="Password" error={invErrs.password || null} required htmlFor="inv-password" hint="Minimum 8 characters.">
+              <Input
+                id="inv-password"
+                type="password"
+                value={invPassword}
+                onChange={(e) => setInvPassword(e.target.value)}
+                className={invErrs.password ? 'border-danger' : undefined}
+                autoComplete="new-password"
+              />
+            </Field>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Role" htmlFor="inv-role">
               <Select id="inv-role" value={invRole} onChange={(e) => setInvRole(e.target.value)}>

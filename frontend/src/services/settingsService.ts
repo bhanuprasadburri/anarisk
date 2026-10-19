@@ -16,7 +16,7 @@ export const settingsService = {
   async createUser(payload: {
     email: string;
     full_name: string;
-    password: string;
+    password?: string;
     role: string;
     organization_id?: string;
   }): Promise<User> {

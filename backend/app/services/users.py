@@ -21,6 +21,7 @@ from app.core.errors import (
 from app.core.security import (
     burn_password_check, create_access_token, hash_password, validate_password_strength, verify_password,
 )
+from app.core.supabase_auth import invite_user
 from app.models import Brand, EmailVerificationToken, Organization, PasswordResetToken, User
 from app.models.enums import UserRole
 from app.schemas.auth import OrganizationCreate, UpdateMeRequest, UserCreate, UserUpdate
@@ -173,22 +174,35 @@ def register_public(db: Session, email: str, full_name: str, password: str, orga
 
 
 def create_user(db: Session, actor: User, data: UserCreate) -> User:
-    validate_password_strength(data.password)
+    supabase_enabled = get_settings().supabase_auth_enabled
+    if not supabase_enabled:
+        if not data.password:
+            raise ValidationFailure("Password is required when using local authentication")
+        validate_password_strength(data.password)
     if data.role != UserRole.ADMIN and data.organization_id is None:
         pass  # allowed: such a user has no data access until assigned
     if data.organization_id and db.get(Organization, data.organization_id) is None:
         raise ValidationFailure("organization_id does not exist")
     user = User(
-        email=data.email.strip().lower(), full_name=data.full_name.strip(), hashed_password=hash_password(data.password),
+        email=data.email.strip().lower(), full_name=data.full_name.strip(),
+        hashed_password=hash_password(data.password or secrets.token_urlsafe(48)),
         role=data.role, organization_id=data.organization_id,
-        email_verified_at=datetime.now(UTC),  # created by an administrator: the address is vouched for
+        email_verified_at=None if supabase_enabled else datetime.now(UTC),
     )
     db.add(user)
     try:
         db.flush()
+        if supabase_enabled:
+            # Keep the admin-created RBAC record in the application DB, but let Supabase
+            # own credentials and email verification. The secret key stays server-side.
+            user.supabase_user_id = invite_user(user.email, user.full_name)
+            db.flush()
     except IntegrityError:
         db.rollback()
         raise ConflictError("An account with this email already exists", code="email_taken")
+    except DomainError:
+        db.rollback()
+        raise
     audit.record(db, actor, "user.create", "user", user.id, details={"role": data.role.value, "organization_id": str(data.organization_id) if data.organization_id else None})
     db.commit()
     return user

@@ -9,7 +9,8 @@ AnaRisk is a digital threat intelligence & investigation platform for identifyin
 | [docs/API.md](docs/API.md) | Full API reference (generated from the current OpenAPI schema — 114 endpoints / 19 tags) |
 | [docs/STATUS.md](docs/STATUS.md) | Feature checklist, verification evidence, and known limitations |
 | [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md) | Email OTP verification & password reset: Resend / Gmail SMTP setup, testing, troubleshooting |
-| [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) | Production deployment: Render backend + Vercel frontend, env vars, verification checklist |
+| [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) | Production deployment: Render backend + Vercel frontend |
+| [docs/SUPABASE_MIGRATION.md](docs/SUPABASE_MIGRATION.md) | Supabase Auth, PostgreSQL backup/cutover, environment variables, and rollback |
 | [PLAN.md](PLAN.md) | Architecture, routes, and design-system plan |
 | Interactive API docs | http://127.0.0.1:8000/docs (Swagger) once the API is running |
 
@@ -193,7 +194,7 @@ This project is designed as a demo and research platform. By default:
 
 The API exposes 114 endpoints across 19 groups (see [docs/API.md](docs/API.md) for the generated reference):
 
-- authentication (register with email OTP verification, login, forgot/reset password,
+- authentication (Supabase email confirmation in production; local OTP fallback, login, recovery,
   resend verification code, verify email code, profile, preferences, change password)
 - users, organizations, and role management
 - brands and official references (name, handle, domain, image, app package)
@@ -215,7 +216,7 @@ The API exposes 114 endpoints across 19 groups (see [docs/API.md](docs/API.md) f
 
 The React app is a 15-interface premium light-theme workspace: Login (with registration,
 OTP verification states — sending / sent / dev code / delivery failure / resend cooldown —
-and password recovery), Verify Email (6-digit code entry), Overview Dashboard,
+and password recovery), Verify Email (Supabase confirmation link or local OTP), Overview Dashboard,
 Digital Assets, Entity Details, Threat Intelligence, Risk Graph, Investigations (case list +
 case workspace), Investigate (4 analysis tools + run history), AI Assistant, Alerts
 (notifications + watchlists), Mobile Apps, Evidence Center, Reports & Analytics, and

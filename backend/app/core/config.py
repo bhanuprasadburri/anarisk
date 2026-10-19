@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://nimbus:nimbus_dev_pw@localhost:5432/nimbus"
     test_database_url: str = "postgresql+psycopg://nimbus:nimbus_dev_pw@localhost:5432/nimbus_test"
 
+    # Supabase Auth. SUPABASE_PUBLISHABLE_KEY is public and is used only to validate
+    # bearer tokens against Auth when needed; it is never used as a database credential.
+    supabase_url: str = ""
+    supabase_publishable_key: str = ""
+    supabase_secret_key: str = ""
+    supabase_jwt_audience: str = "authenticated"
+
     secret_key: str = PLACEHOLDER_SECRET
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
@@ -226,7 +233,17 @@ class Settings(BaseSettings):
                 raise ValueError("CORS_ORIGINS must not contain '*' in production")
             if self.debug:
                 raise ValueError("DEBUG must be false in production")
+            if self.supabase_url and not self.supabase_publishable_key:
+                raise ValueError("SUPABASE_PUBLISHABLE_KEY is required when Supabase Auth is enabled")
+            if self.supabase_url and not self.supabase_secret_key:
+                raise ValueError("SUPABASE_SECRET_KEY is required for protected admin user invitations")
+            if self.supabase_url and not self.supabase_url.startswith("https://"):
+                raise ValueError("SUPABASE_URL must use HTTPS in production")
         return self
+
+    @property
+    def supabase_auth_enabled(self) -> bool:
+        return bool(self.supabase_url.strip())
 
     @property
     def weights(self) -> dict[str, float]:

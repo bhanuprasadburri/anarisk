@@ -85,31 +85,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    let alive = true;
+    const loadBackendProfile = async () => {
+      try {
+        const me = await authService.getCurrentUser();
+        if (!alive) return;
+        setUser(me);
+        await refreshBrands();
+      } catch (error) {
+        if (!alive) return;
+        if (error instanceof ApiError && error.status === 401) authService.logout();
+        setUser(null);
+        setBrands([]);
+      } finally {
+        if (alive) setIsLoading(false);
+      }
+    };
+
+    const unsubscribe = authService.onAuthStateChange((event, hasSession) => {
+      if (event === 'SIGNED_OUT' || !hasSession) {
+        setUser(null);
+        setBrands([]);
+        setIsLoading(false);
+      } else if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+        // Leave Supabase's auth callback stack before making an API request that reads
+        // the refreshed session from the client.
+        queueMicrotask(() => { if (alive) void loadBackendProfile(); });
+      }
+    });
+
     (async () => {
       setIsLoading(true);
       const backendOk = await checkBackendHealth();
+      if (!alive) return;
       setIsBackendConnected(backendOk);
-      if (localStorage.getItem('nimbus_auth_token')) {
-        try {
-          const me = await authService.getCurrentUser();
-          setUser(me);
-          await refreshBrands();
-        } catch {
-          authService.logout();
-          setUser(null);
-        }
+      let hasSession = false;
+      try { hasSession = await authService.getSession(); } catch { /* show signed-out state */ }
+      if (hasSession) {
+        await loadBackendProfile();
+      } else {
+        setUser(null);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     })();
+    return () => { alive = false; unsubscribe(); };
   }, [refreshBrands]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await authService.login(email, password);
+    await authService.login(email, password);
     const me = await authService.getCurrentUser();
-    const fresh = me || (res.user as CurrentUser);
-    setUser(fresh);
+    setUser(me);
     await refreshBrands();
-    return fresh;
+    return me;
   }, [refreshBrands]);
 
   const logout = useCallback(() => {

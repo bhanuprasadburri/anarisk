@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Input, Field } from '../components/ui/input';
 import { useToast } from '../components/ui/toast';
 import { ApiError } from '../services/apiClient';
+import { supabaseAuthEnabled } from '../lib/supabase';
 
 export const ResetPasswordPage: React.FC = () => {
   const [params] = useSearchParams();
@@ -22,7 +23,7 @@ export const ResetPasswordPage: React.FC = () => {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!token.trim()) errs.token = 'Reset token is required';
+    if (!supabaseAuthEnabled && !token.trim()) errs.token = 'Reset token is required';
     if (password.length < 8) errs.password = 'Password must be at least 8 characters';
     if (password !== confirm) errs.confirm = 'Passwords do not match';
     setFieldErrors(errs);
@@ -57,7 +58,9 @@ export const ResetPasswordPage: React.FC = () => {
             <Shield className="h-5 w-5" />
           </span>
           <h1 className="mt-5 text-xl font-extrabold tracking-tight text-ink">Set a new password</h1>
-          <p className="mt-1.5 text-[13px] text-muted">Paste your reset token and choose a new password.</p>
+          <p className="mt-1.5 text-[13px] text-muted">
+            {supabaseAuthEnabled ? 'Choose a new password for your AnaRisk account.' : 'Paste your reset token and choose a new password.'}
+          </p>
 
           {error && (
             <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-danger-100 bg-danger-100/60 px-3.5 py-3">
@@ -73,7 +76,7 @@ export const ResetPasswordPage: React.FC = () => {
           )}
 
           <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-            {!params.get('token') && (
+            {!supabaseAuthEnabled && !params.get('token') && (
               <Field label="Reset token" error={fieldErrors.token} required>
                 <Input value={token} onChange={(e) => setToken(e.target.value)} placeholder="Paste token" />
               </Field>

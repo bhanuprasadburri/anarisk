@@ -1,9 +1,5 @@
 # ---------------------------------------------------------------------------
-# Render Blueprint — AnaRisk backend (FastAPI) + managed PostgreSQL.
-#
-# Creates two resources from this repository:
-#   1. anarisk-db    — Render Postgres (persistent, TLS required)
-#   2. anarisk-api   — the FastAPI service (rootDir: backend)
+# Render Blueprint — AnaRisk backend (FastAPI). PostgreSQL is hosted by Supabase.
 #
 # Migrations run automatically on every deploy via preDeployCommand
 # (alembic upgrade head), and the health check hits /api/v1/ready, which
@@ -16,14 +12,6 @@
 # See docs/DEPLOY_RENDER.md for the full environment-variable reference and
 # the post-deploy verification checklist.
 # ---------------------------------------------------------------------------
-
-databases:
-  - name: anarisk-db
-    plan: free # 0.1 CPU / 256 MB. Upgrade to 0.1c-256mb+ (paid) for production workloads.
-    databaseName: nimbus
-    user: nimbus
-    # ipAllowList omitted => all IPs allowed; connections still require valid
-    # credentials and TLS (the app adds sslmode=require for *.render.com hosts).
 
 services:
   - type: web
@@ -45,11 +33,20 @@ services:
       - key: SECRET_KEY
         generateValue: true # 256-bit value, generated once and kept across syncs.
         # Alternative: `sync: false` and paste your own: python -c "import secrets; print(secrets.token_urlsafe(48))"
-      # ---- database (rendered from anarisk-db; includes sslmode) ----
+      # ---- Supabase PostgreSQL. Set this only after the backup/migration procedure in
+      # docs/SUPABASE_MIGRATION.md is complete. Use the Supabase Session Pooler URI with
+      # sslmode=require when Render cannot reach the direct IPv6-only endpoint. ----
       - key: DATABASE_URL
-        fromDatabase:
-          name: anarisk-db
-          property: connectionString
+        sync: false
+      # ---- Supabase Auth ----
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false # server-only key for the protected admin invitation endpoint
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
       # ---- frontend origin (Vercel) — REQUIRED, prompt at first sync ----
       # e.g. https://your-project.vercel.app   (comma-separated for several origins)
       - key: CORS_ORIGINS

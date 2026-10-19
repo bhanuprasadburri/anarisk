@@ -6,8 +6,45 @@ import { Input, Field } from '../components/ui/input';
 import { useToast } from '../components/ui/toast';
 import { ApiError } from '../services/apiClient';
 import { authService } from '../services/authService';
+import { supabaseAuthEnabled } from '../lib/supabase';
+import { useAuth } from '../hooks/useAuth';
 
 type Phase = 'idle' | 'verifying' | 'done';
+
+const SupabaseVerification: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    toast.success('Email verified', 'Your account is ready to use.');
+    navigate('/dashboard', { replace: true });
+  }, [isAuthenticated, navigate, toast]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-bg px-5 py-10">
+      <div className="w-full max-w-[440px] rounded-2xl border border-line bg-surface p-7 shadow-card">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <MailCheck className="h-6 w-6" />
+        </span>
+        <h1 className="mt-4 text-xl font-extrabold tracking-tight text-ink">
+          {isLoading ? 'Confirming your email' : 'Check your email'}
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          {isLoading
+            ? 'We are restoring your secure AnaRisk session.'
+            : 'Open the verification link from Supabase Auth in this browser. When confirmation succeeds, you will be signed in automatically.'}
+        </p>
+        {!isLoading && (
+          <Button className="mt-5 w-full" onClick={() => navigate('/login', { replace: true })}>
+            Back to sign in
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 /**
  * OTP entry for email verification. Signup verification is code-based (no email link):
@@ -41,6 +78,8 @@ export const VerifyEmailPage: React.FC = () => {
   useEffect(() => {
     if (emailFromUrl) codeRef.current?.focus();
   }, [emailFromUrl]);
+
+  if (supabaseAuthEnabled) return <SupabaseVerification />;
 
   const describeVerifyError = (err: unknown): string => {
     if (err instanceof ApiError) {
