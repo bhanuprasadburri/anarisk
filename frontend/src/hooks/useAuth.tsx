@@ -15,7 +15,7 @@ interface AuthContextType {
   activeBrand: Brand | null;
   setActiveBrand: (brand: Brand | null) => void;
   refreshBrands: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<CurrentUser>;
   logout: () => void;
   refreshAuth: () => Promise<void>;
   updateProfile: (payload: {
@@ -26,18 +26,28 @@ interface AuthContextType {
   hasPermission: (perm: string) => boolean;
 }
 
+// Mirrors app/core/permissions.py (backend). The backend is authoritative — this matrix only
+// drives which controls the UI shows, never access itself (every endpoint re-checks server-side).
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   administrator: ['*'],
   investigator: [
-    'dashboard:read', 'entity:read', 'entity:submit', 'entity:analyze', 'evidence:read', 'evidence:write',
-    'graph:read', 'case:read', 'case:create', 'case:triage', 'case:assign', 'case:escalate',
-    'case:resolve', 'case:note', 'audit:read', 'brand:read', 'connector:run', 'url:inspect',
+    'brand:read', 'entity:read', 'entity:submit', 'entity:analyze', 'evidence:read', 'evidence:write',
+    'graph:read', 'graph:write', 'case:read', 'case:create', 'case:triage', 'case:assign',
+    'case:escalate', 'case:resolve', 'case:note', 'dashboard:read', 'audit:read', 'connector:run', 'url:inspect',
   ],
   brand_owner: [
-    'dashboard:read', 'entity:read', 'entity:submit', 'graph:read', 'case:read',
-    'brand:read', 'brand:write', 'evidence:read', 'evidence:write',
+    'brand:read', 'brand:write', 'entity:read', 'entity:submit', 'evidence:read', 'evidence:write',
+    'graph:read', 'case:read', 'case:note', 'dashboard:read',
   ],
-  partner: ['dashboard:read', 'case:read', 'evidence:read'],
+  partner: ['brand:read', 'entity:read', 'evidence:read', 'case:read', 'case:note'],
+};
+
+const ACTIVE_BRAND_KEY = 'nimbus_active_brand';
+
+/** First permitted page for a role (e.g. partners have no dashboard:read -> Investigations). */
+export const homePathFor = (role: string | undefined): string => {
+  const perms = ROLE_PERMISSIONS[role ?? ''] || [];
+  return perms.includes('*') || perms.includes('dashboard:read') ? '/dashboard' : '/cases';
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,14 +57,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isBackendConnected, setIsBackendConnected] = useState(true);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [activeBrand, setActiveBrand] = useState<Brand | null>(null);
+  const [activeBrand, setActiveBrandState] = useState<Brand | null>(null);
+
+  // Selection made at login (or later) is persisted so page reloads keep the same scope.
+  const setActiveBrand = useCallback((brand: Brand | null) => {
+    setActiveBrandState(brand);
+    try {
+      if (brand) localStorage.setItem(ACTIVE_BRAND_KEY, brand.id);
+      else localStorage.removeItem(ACTIVE_BRAND_KEY);
+    } catch { /* storage unavailable (private mode) — selection stays in memory */ }
+  }, []);
 
   const refreshBrands = useCallback(async () => {
     try {
       const res = await brandService.listBrands({ page_size: 100 });
       const items = Array.isArray(res) ? (res as Brand[]) : res.items || [];
       setBrands(items);
-      setActiveBrand((prev) => (prev ? items.find((b) => b.id === prev.id) || items[0] || null : items[0] || null));
+      let storedId: string | null = null;
+      try { storedId = localStorage.getItem(ACTIVE_BRAND_KEY); } catch { /* ignore */ }
+      setActiveBrandState((prev) => {
+        const wanted = prev?.id ?? storedId;
+        return (wanted && items.find((b) => b.id === wanted)) || items[0] || null;
+      });
     } catch {
       setBrands([]);
     }
@@ -82,8 +106,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string) => {
     const res = await authService.login(email, password);
     const me = await authService.getCurrentUser();
-    setUser(me || (res.user as CurrentUser));
+    const fresh = me || (res.user as CurrentUser);
+    setUser(fresh);
     await refreshBrands();
+    return fresh;
   }, [refreshBrands]);
 
   const logout = useCallback(() => {

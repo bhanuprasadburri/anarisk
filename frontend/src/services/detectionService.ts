@@ -37,9 +37,15 @@ export const detectionService = {
     return apiRequest<DetectionModelInfo>(`/detection/model`);
   },
 
-  async listSignals(params: { entity_id?: string; assessment_id?: string } = {}): Promise<
-    PaginatedResponse<RiskAssessment['signals'][number]>
-  > {
+  async listSignals(params: {
+    entity_id?: string;
+    assessment_id?: string;
+    signal_type?: string;
+    status?: string;
+    latest_only?: boolean;
+    page?: number;
+    page_size?: number;
+  } = {}): Promise<PaginatedResponse<RiskAssessment['signals'][number]>> {
     return apiRequest(`/detection/signals${qs(params)}`);
   },
 };

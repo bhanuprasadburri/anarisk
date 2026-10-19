@@ -48,6 +48,36 @@ def test_dashboard_stats_are_database_backed(client, populated):
     assert t["open_cases"] == 0 and t["escalated_cases"] == 0 and s["latest_activity"] == []
 
 
+def test_dashboard_and_overview_purpose_filter_composes_with_scope(client, populated):
+    p = populated
+    manual = client.get("/api/v1/dashboard/stats", params={"brand_id": p.bid, "provenance": "manual"}, headers=p.h)
+    assert manual.status_code == 200
+    manual_data = manual.json()
+    assert manual_data["totals"]["monitored_entities"] == 4
+    assert sum(manual_data["risk_distribution"].values()) == 4
+    assert manual_data["data_provenance"] == {"collected": 0, "manual": 4, "synthetic": 0}
+
+    synthetic = client.get("/api/v1/dashboard/stats", params={"provenance": "synthetic"}, headers=p.h).json()
+    assert synthetic["totals"]["monitored_entities"] == 1
+    assert synthetic["entity_type_distribution"]["mobile_app"] == 1
+
+    overview = client.get("/api/v1/reports/overview", params={"brand_id": p.bid, "provenance": "manual"}, headers=p.h)
+    assert overview.status_code == 200
+    report = overview.json()
+    assert report["totals"]["entities"] == 4
+    assert report["totals"]["detections"] == 3
+    assert report["mobile_apps"]["total"] == 0
+    # Cases do not carry a provenance field, so their workflow totals remain brand scoped.
+    assert "Case workflow counts remain scope-wide" in " ".join(report["data_notes"])
+
+    csv = client.get("/api/v1/reports/export/csv", params={"report": "entities", "brand_id": p.bid, "provenance": "synthetic"}, headers=p.h)
+    assert csv.status_code == 200 and "com.acmebank.rewards" in csv.text
+    assert "gardening_fan" not in csv.text
+
+    invalid = client.get("/api/v1/reports/overview", params={"provenance": "invented"}, headers=p.h)
+    assert invalid.status_code == 422
+
+
 def test_dashboard_case_counts_and_activity_follow_workflow(client, populated):
     p = populated
     ids = [p.ents["p"]["id"], p.ents["w"]["id"]]
@@ -231,3 +261,47 @@ def test_security_headers_and_cors(client):
     assert ok.headers.get("access-control-allow-origin") == "http://localhost:3000"
     bad = client.options("/api/v1/entities", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "GET"})
     assert "access-control-allow-origin" not in bad.headers
+
+
+def test_migration_0006_backfills_personal_scope(db, f, monkeypatch):
+    """Migration 0006 scopes organization-less non-admin accounts (personal org + brand "Self").
+
+    Additive only: admins and already-scoped users are untouched, and downgrade deletes nothing.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    from app.models import Brand, Organization, User
+    from app.models.enums import UserRole
+
+    orgless = f.user(UserRole.INVESTIGATOR)   # account created before 0006 (public signup)
+    admin = f.user(UserRole.ADMIN)            # global access - must stay untouched
+    a = f.org("Org A")
+    scoped = f.user(UserRole.BRAND_OWNER, a)  # already scoped - must stay untouched
+
+    path = next((Path(__file__).resolve().parents[1] / "alembic" / "versions").glob("*_0006_*.py"))
+    spec = importlib.util.spec_from_file_location("migration_0006", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    conn = db.connection()
+
+    class _Op:
+        def get_bind(self):
+            return conn
+
+    monkeypatch.setattr(mod, "op", _Op())
+    mod.upgrade()
+
+    db.refresh(orgless)
+    assert orgless.organization_id is not None
+    org = db.get(Organization, orgless.organization_id)
+    assert org is not None and org.name == "Personal"
+    assert [b.name for b in db.query(Brand).where(Brand.organization_id == org.id).all()] == ["Self"]
+
+    assert admin.organization_id is None
+    assert scoped.organization_id == a.id
+    assert db.query(Organization).count() == 2 and db.query(User).count() == 3
+
+    mod.downgrade()  # documented no-op: must not delete organizations/brands/users
+    assert db.query(Organization).count() == 2 and db.query(Brand).count() == 1 and db.query(User).count() == 3

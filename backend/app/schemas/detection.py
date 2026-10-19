@@ -10,6 +10,15 @@ from app.models.enums import Severity, SignalStatus, SignalType
 from app.schemas.common import ORM
 
 
+class DetectionEntityRef(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    entity_type: str
+    canonical_id: str
+    platform: str | None = None
+    provenance: str
+
+
 class SignalOut(ORM):
     id: uuid.UUID
     entity_id: uuid.UUID
@@ -21,6 +30,8 @@ class SignalOut(ORM):
     evidence_refs: list[dict[str, Any]]
     metadata: dict[str, Any] = Field(validation_alias="meta")
     created_at: datetime
+    # joined-in entity context so signal listings can show which asset fired (None when unknown)
+    entity: DetectionEntityRef | None = None
 
 
 class AssessmentOut(ORM):
@@ -67,15 +78,6 @@ class ModelInfo(BaseModel):
     confidence: dict[str, Any]
     rule_description: list[RuleDescription] = []
     status: str = "heuristic - unvalidated; requires human review"
-
-
-class DetectionEntityRef(BaseModel):
-    id: uuid.UUID
-    display_name: str
-    entity_type: str
-    canonical_id: str
-    platform: str | None = None
-    provenance: str
 
 
 class SignalSummary(BaseModel):

@@ -47,7 +47,7 @@ Three layers now prevent a repeat:
    (see the table below). Fill them in.
 4. Watch the deploy log. You must see:
    - `preDeployCommand` → `alembic upgrade head` completing
-   - `database probe ok (migration revision 0005)` from the app
+   - `database probe ok (migration revision 0009)` from the app
    - the health check passing on `/api/v1/ready`
 
 ### Build / start / migration commands (already in the Blueprint)
@@ -110,7 +110,7 @@ Run these from any machine; they require no credentials:
 API=https://your-api.onrender.com
 
 curl -s $API/api/v1/health   # {"status":"ok",...}
-curl -si $API/api/v1/ready   # HTTP/1.1 200 {"status":"ready","database":"ok","migration_revision":"0005"}
+curl -si $API/api/v1/ready   # HTTP/1.1 200 {"status":"ready","database":"ok","migration_revision":"0009"}
 ```
 
 Then, with the frontend deployed:
@@ -122,7 +122,7 @@ Then, with the frontend deployed:
 4. Wrong password **and** unverified email → HTTP 401 `invalid_credentials` (uniform — the
    login screen never reveals whether an account exists; unverified users sign up again to
    get a fresh code). Neither is a 500.
-5. In Render's logs you should see `database probe ok (migration revision 0005)` —
+5. In Render's logs you should see `database probe ok (migration revision 0009)` —
    and **no** `DATABASE PROBE FAILED` / `MIGRATIONS NOT APPLIED` lines.
 
 If `/ready` reports 503, the body tells you which of the two cases you are in:

@@ -1,5 +1,5 @@
 import { apiRequest, qs } from './apiClient';
-import { InvestigationCase, PaginatedResponse, CaseUserRef, CaseNote } from '../types';
+import { InvestigationCase, PaginatedResponse, CaseUserRef, CaseNote, GraphResponse } from '../types';
 
 export interface CaseListParams {
   q?: string;
@@ -22,18 +22,24 @@ export const caseService = {
     return apiRequest<InvestigationCase>(`/cases/${caseId}`);
   },
 
+  /** Server-composed sub-graph: the case's linked entities + relationships among them. */
+  async getCaseGraph(caseId: string): Promise<GraphResponse> {
+    return apiRequest<GraphResponse>(`/cases/${caseId}/graph`);
+  },
+
   async createCase(payload: {
     brand_id: string;
     title: string;
     summary?: string;
     entity_ids: string[];
+    platforms?: string[];
   }): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases`, { method: 'POST', body: JSON.stringify(payload) });
   },
 
   async updateCase(
     caseId: string,
-    payload: { title?: string; summary?: string | null; severity?: string; version?: number }
+    payload: { title?: string; summary?: string | null; severity?: string; platforms?: string[]; version?: number }
   ): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases/${caseId}`, {
       method: 'PATCH',

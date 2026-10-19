@@ -13,6 +13,9 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     full_name: str = Field(min_length=1, max_length=200)
     password: str = Field(min_length=1, max_length=256)
+    # Optional: an organization ("workspace") name for organization signups. When omitted the
+    # account is an individual and receives the standard personal brand scope ("Self").
+    organization_name: str | None = Field(None, min_length=2, max_length=200)
 
 
 class VerifyEmailRequest(BaseModel):

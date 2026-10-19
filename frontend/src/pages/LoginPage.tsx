@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Shield, Search, Radar, Zap, AlertCircle, ArrowRight, MailCheck } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { Eye, EyeOff, Shield, Search, Radar, Zap, AlertCircle, ArrowRight, MailCheck, Building2 } from 'lucide-react';
+import { useAuth, homePathFor } from '../hooks/useAuth';
 import { Button } from '../components/ui/button';
 import { Input, Field } from '../components/ui/input';
 import { useToast } from '../components/ui/toast';
@@ -98,7 +98,7 @@ const BrandPanel: React.FC = () => (
 );
 
 export const LoginPage: React.FC = () => {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, logout, isAuthenticated, isLoading, user, brands, setActiveBrand } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -107,11 +107,15 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState(() => localStorage.getItem('nimbus_remember_email') || '');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [organizationName, setOrganizationName] = useState(''); // signup: optional workspace name
   const [remember, setRemember] = useState(() => !!localStorage.getItem('nimbus_remember_email'));
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Post-login brand scope selection: standard users choose a brand on the login interface;
+  // administrators keep global access and skip this step.
+  const [brandStep, setBrandStep] = useState(false);
   // Post-registration state: the account is NOT activated until the emailed OTP is confirmed.
   const [registered, setRegistered] = useState<{
     email: string;
@@ -130,10 +134,13 @@ export const LoginPage: React.FC = () => {
   }, [cooldown]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate((location.state as any)?.from || '/dashboard', { replace: true });
+    // `submitting` guards the race where `login()` commits the user (setUser) and then awaits
+    // refreshBrands(): without it this effect navigated away before the brand-scope step could
+    // be shown, silently skipping brand selection for every non-admin sign-in.
+    if (!isLoading && isAuthenticated && !brandStep && !submitting) {
+      navigate((location.state as any)?.from || homePathFor(user?.role), { replace: true });
     }
-  }, [isLoading, isAuthenticated, navigate, location]);
+  }, [isLoading, isAuthenticated, brandStep, submitting, user, navigate, location]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -153,14 +160,25 @@ export const LoginPage: React.FC = () => {
     setSubmitting(true);
     try {
       if (mode === 'signin') {
-        await login(email.trim(), password);
+        const me = await login(email.trim(), password);
         if (remember) localStorage.setItem('nimbus_remember_email', email.trim());
         else localStorage.removeItem('nimbus_remember_email');
         toast.success('Welcome back', 'Signed in to AnaRisk.');
-        navigate((location.state as any)?.from || '/dashboard', { replace: true });
+        if (me.role === 'administrator') {
+          // Admins keep authorized global access and are never asked to pick a brand.
+          navigate((location.state as any)?.from || homePathFor(me.role), { replace: true });
+        } else {
+          // Standard users select their brand scope right here on the login interface.
+          setBrandStep(true);
+        }
       } else {
         const { authService } = await import('../services/authService');
-        const res = await authService.register({ email: email.trim(), password, full_name: fullName.trim() });
+        const res = await authService.register({
+          email: email.trim(),
+          password,
+          full_name: fullName.trim(),
+          organization_name: organizationName.trim() || undefined,
+        });
         // Honest state: never auto-login before verification, and never claim an email was
         // sent unless the backend confirmed delivery (or returned a dev-only code).
         setRegistered({
@@ -234,12 +252,14 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <h2 className="text-2xl font-extrabold tracking-tight text-ink">
-            {mode === 'signin' ? 'Welcome back' : 'Create your account'}
+            {brandStep ? 'Choose your brand' : mode === 'signin' ? 'Welcome back' : 'Create your account'}
           </h2>
           <p className="mt-1.5 text-sm text-muted">
-            {mode === 'signin'
-              ? 'Sign in to your AnaRisk account'
-              : 'Start monitoring your digital surface in minutes'}
+            {brandStep
+              ? 'Select the brand scope you want to work with'
+              : mode === 'signin'
+                ? 'Sign in to your AnaRisk account'
+                : 'Start monitoring your digital surface in minutes'}
           </p>
 
           {error && (
@@ -267,7 +287,71 @@ export const LoginPage: React.FC = () => {
             </p>
           )}
 
-          {registered ? (
+          {brandStep ? (
+            <div className="mt-6 rounded-2xl border border-line bg-white p-5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 shadow-sm">
+                <Building2 className="h-5 w-5" />
+              </span>
+              <h3 className="mt-3 text-[15px] font-bold text-ink">Your brand scope</h3>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                Signed in as <strong className="text-ink-700">{email}</strong>. Pick the brand you want
+                to work with — the selected brand seeds the filters across your pages, and you can
+                switch it at any time.
+              </p>
+
+              {brands.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-line bg-bg px-3.5 py-3">
+                  <p className="text-[13px] leading-relaxed text-muted">
+                    No brands are assigned to your account yet. An administrator can assign you to a
+                    brand, or you can create one in{' '}
+                    <strong className="text-ink-700">Settings → Brand References</strong>.
+                  </p>
+                  <Button
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => navigate((location.state as any)?.from || homePathFor(user?.role), { replace: true })}
+                  >
+                    Continue
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <ul className="mt-4 space-y-2">
+                  {brands.map((b) => (
+                    <li key={b.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveBrand(b);
+                          navigate((location.state as any)?.from || homePathFor(user?.role), { replace: true });
+                        }}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-line px-3.5 py-3 text-left transition-colors hover:border-brand-200 hover:bg-brand-50/50"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-[13.5px] font-bold text-ink">{b.name}</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+                            {b.name === 'Self' ? 'Self' : 'Organization'}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 shrink-0 text-brand-500" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <button
+                type="button"
+                className="mt-4 text-[12.5px] font-semibold text-muted hover:text-ink"
+                onClick={() => {
+                  logout();
+                  setBrandStep(false);
+                }}
+              >
+                Not you? Sign out
+              </button>
+            </div>
+          ) : registered ? (
             <div className="mt-6 rounded-2xl border border-brand-100 bg-brand-50/60 p-5">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm">
                 <MailCheck className="h-5 w-5" />
@@ -340,6 +424,19 @@ export const LoginPage: React.FC = () => {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Alex Vance"
                   autoComplete="name"
+                />
+              </Field>
+            )}
+            {mode === 'signup' && (
+              <Field
+                label="Organization name (optional)"
+                error={fieldErrors.organizationName}
+              >
+                <Input
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  placeholder="Acme Corp — leave empty for a personal account"
+                  autoComplete="organization"
                 />
               </Field>
             )}

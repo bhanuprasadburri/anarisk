@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.services.tools.common import dns_query
+from tests.conftest import png_bytes
 
 
 @pytest.fixture(autouse=True)
@@ -388,3 +389,119 @@ def test_paused_target_is_not_scheduled(world, f, db):
     assert r.status_code == 200
     assert r.json()["next_run_at"] is None
 
+
+
+# ---------------------------------------------------------------- image tool
+def test_image_tool_validates_persists_and_is_honest_without_ai(world, f):
+    h = world.h["inv"]
+    png = png_bytes("login-page-screenshot")
+    r = f.client.post("/api/v1/tools/image/analyze", headers=h,
+                      files={"file": ("shot.png", png, "image/png")}, data={"context": "email"})
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["tool"] == "image" and body["methodology_version"]
+    checks = {x["check"]: x for x in body["findings"]}
+    # content-validated file: a verified precondition with weight 0 (cannot score as a threat)
+    assert checks["image_validity"]["status"] == "verified" and checks["image_validity"]["weight"] == 0
+    # no official images registered -> logo similarity honestly unavailable
+    assert checks["brand_logo_similarity"]["status"] == "unable_to_verify"
+    # no AI provider configured -> content interpretation honestly unavailable, never fabricated
+    assert checks["ai_image_review"]["status"] == "unable_to_verify"
+    # a clean screenshot must not be scored as a threat
+    assert body["severity"] in ("none", "low", "unknown"), body["severity"]
+    assert body["risk_score"] is not None
+    for x in body["findings"]:
+        assert x["title"] and x["source"], x
+    # persisted and filterable under the new tool key
+    lst = f.client.get("/api/v1/tools/analyses", params={"tool": "image"}, headers=h).json()
+    assert lst["total"] == 1 and lst["items"][0]["id"] == body["id"]
+    assert f.client.get("/api/v1/tools/analyses", params={"tool": "email"}, headers=h).json()["total"] == 0
+
+
+def test_image_tool_rejects_non_images_bad_context_and_unauthorized(world, f):
+    h = world.h["inv"]
+    # non-image bytes are rejected by content inspection (not by extension)
+    r = f.client.post("/api/v1/tools/image/analyze", headers=h,
+                      files={"file": ("shot.png", b"definitely not an image", "image/png")},
+                      data={"context": "email"})
+    assert r.status_code == 422
+    # context is constrained to the three supported forms
+    png = png_bytes("ctx")
+    r2 = f.client.post("/api/v1/tools/image/analyze", headers=h,
+                       files={"file": ("shot.png", png, "image/png")}, data={"context": "malware"})
+    assert r2.status_code == 422
+    # missing file
+    r3 = f.client.post("/api/v1/tools/image/analyze", headers=h, data={"context": "email"})
+    assert r3.status_code == 422
+    # permissions: partner lacks entity:submit -> 403; anonymous -> 401
+    r4 = f.client.post("/api/v1/tools/image/analyze", headers=world.h["partner"],
+                       files={"file": ("shot.png", png, "image/png")}, data={"context": "email"})
+    assert r4.status_code == 403
+    r5 = f.client.post("/api/v1/tools/image/analyze",
+                       files={"file": ("shot.png", png, "image/png")}, data={"context": "email"})
+    assert r5.status_code == 401
+
+
+def test_image_tool_official_logo_similarity(world, f):
+    # register the official logo as a brand image reference (stores its perceptual hash)
+    logo = png_bytes("official")
+    r = f.client.post(f"/api/v1/brands/{world.brand['id']}/references/image",
+                      files={"file": ("logo.png", logo, "image/png")}, headers=world.h["owner"])
+    assert r.status_code == 201, r.text
+    # analyzing the SAME bytes yields a perceptual match against the official reference
+    r2 = f.client.post("/api/v1/tools/image/analyze", headers=world.h["inv"],
+                       files={"file": ("logo.png", logo, "image/png")}, data={"context": "social_profile"})
+    assert r2.status_code == 201, r2.text
+    checks = {x["check"]: x for x in r2.json()["findings"]}
+    sim = checks["brand_logo_similarity"]
+    assert sim["status"] == "inconclusive", sim
+    assert "similar" in sim["summary"].lower() and "64" in sim["summary"]
+    assert sim["limitation"] and sim["evidence"]
+
+
+def test_image_tool_runs_ai_review_when_provider_configured(world, f, settings):
+    settings.ai_provider = "memory"
+    try:
+        png = png_bytes("ai-review")
+        r = f.client.post("/api/v1/tools/image/analyze", headers=world.h["inv"],
+                          files={"file": ("shot.png", png, "image/png")}, data={"context": "job_offer"})
+        assert r.status_code == 201, r.text
+        checks = {x["check"]: x for x in r.json()["findings"]}
+        ai = checks["ai_image_review"]
+        # the memory provider invents nothing: a deterministic receipt, clearly labelled
+        assert ai["status"] == "info", ai
+        assert "memory" in ai["source"].lower()
+        assert ai["limitation"] and ai["evidence"]
+        assert any("received" in e.lower() or "base64" in e.lower() for e in ai["evidence"])
+    finally:
+        settings.ai_provider = "none"
+
+
+def test_image_tool_ai_provider_error_is_reported_honestly(world, f, settings):
+    """A broken/unreachable model must yield an honest unable_to_verify finding, never a 500."""
+    from app.services.ai.base import AIProviderError
+
+    import app.services.tools.image_analyzer as image_analyzer
+
+    class BoomProvider:
+        name = "boom"
+
+        def complete_image_json(self, *a, **k):
+            raise AIProviderError("provider unreachable")
+
+    settings.ai_provider = "memory"
+    original = image_analyzer.get_provider
+    image_analyzer.get_provider = lambda: BoomProvider()
+    try:
+        png = png_bytes("boom")
+        r = f.client.post("/api/v1/tools/image/analyze", headers=world.h["inv"],
+                          files={"file": ("shot.png", png, "image/png")}, data={"context": "email"})
+        assert r.status_code == 201, r.text
+        checks = {x["check"]: x for x in r.json()["findings"]}
+        ai = checks["ai_image_review"]
+        assert ai["status"] == "unable_to_verify", ai
+        assert "unreachable" in ai["summary"]
+        assert ai["limitation"]
+    finally:
+        image_analyzer.get_provider = original
+        settings.ai_provider = "none"

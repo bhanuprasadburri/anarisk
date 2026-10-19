@@ -23,7 +23,7 @@ class ToolAnalysis(Base):
     __table_args__ = (
         Index("ix_tool_analyses_org_created", "organization_id", "created_at"),
         Index("ix_tool_analyses_org_tool", "organization_id", "tool"),
-        CheckConstraint("tool IN ('email', 'job_offer', 'social_profile', 'url')", name="tool_values"),
+        CheckConstraint("tool IN ('email', 'job_offer', 'social_profile', 'url', 'image')", name="tool_values"),
     )
     id: Mapped[uuid.UUID] = uuid_pk()
     organization_id: Mapped[uuid.UUID | None] = mapped_column(

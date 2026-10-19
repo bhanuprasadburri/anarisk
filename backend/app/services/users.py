@@ -21,7 +21,7 @@ from app.core.errors import (
 from app.core.security import (
     burn_password_check, create_access_token, hash_password, validate_password_strength, verify_password,
 )
-from app.models import EmailVerificationToken, Organization, PasswordResetToken, User
+from app.models import Brand, EmailVerificationToken, Organization, PasswordResetToken, User
 from app.models.enums import UserRole
 from app.schemas.auth import OrganizationCreate, UpdateMeRequest, UserCreate, UserUpdate
 from app.services import audit
@@ -67,9 +67,52 @@ def authenticate(db: Session, email: str, password: str) -> tuple[str, int]:
     return create_access_token(user.id)
 
 
-def register_public(db: Session, email: str, full_name: str, password: str) -> dict:
-    """Self-registration with email OTP verification (brand_owner, no organization until an
-    administrator assigns one; a caller can never choose their own role or organization).
+def _unique_org_slug(db: Session, base: str) -> str:
+    """Globally-unique organization slug (organizations.slug is globally unique)."""
+    import re
+
+    s = re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-") or "org"
+    slug = s[:85]
+    while db.scalar(select(Organization.id).where(Organization.slug == slug)) is not None:
+        slug = f"{s[:80]}-{secrets.token_hex(2)}"
+    return slug
+
+
+def _ensure_account_scope(db: Session, user: User, organization_name: str | None = None) -> bool:
+    """Give a self-registered account a usable brand scope, in the same transaction.
+
+    * ``organization_name`` provided -> an Organization of that name (an organization signup;
+      the workspace owner creates its first brand explicitly from Settings -> Brand References).
+    * omitted -> a personal Organization plus the standard brand **"Self"** (individual account).
+
+    Idempotent: does nothing when the account already has an organization, so repeat signups and
+    the concurrent-signup fallback path never duplicate rows. Returns True when rows were created.
+    """
+    if user.organization_id is not None:
+        return False
+    name = (organization_name or "").strip()
+    individual = not bool(name)
+    if individual:
+        name = "Personal"
+    org = Organization(name=name, slug=_unique_org_slug(db, name if not individual else f"personal-{user.email}"))
+    db.add(org)
+    db.flush()
+    if individual:
+        # Individuals are associated with the brand "Self" (single, fixed per personal org).
+        db.add(Brand(organization_id=org.id, name="Self", slug="self",
+                     description="Personal brand scope for an individual account."))
+    user.organization_id = org.id
+    db.flush()
+    return True
+
+
+def register_public(db: Session, email: str, full_name: str, password: str, organization_name: str | None = None) -> dict:
+    """Self-registration with email OTP verification (brand_owner role; a caller can never
+    choose their own role or organization id).
+
+    Scope model: individual signups (no ``organization_name``) receive a personal organization
+    with the brand **"Self"**; organization signups receive an organization named after the
+    provided ``organization_name`` (the owner then creates its brands explicitly).
 
     The account is created UNVERIFIED — it is not activated until the OTP is confirmed.
     The response is deliberately uniform whether or not the address already had an account,
@@ -103,6 +146,11 @@ def register_public(db: Session, email: str, full_name: str, password: str) -> d
             user = candidate
             audit.record(db, user, "auth.register", "user", user.id)
             db.commit()
+
+    # Brand scope for the account: personal org + "Self" brand for individuals, or the
+    # organization named at signup. Idempotent — repeat signups never duplicate rows.
+    if _ensure_account_scope(db, user, organization_name):
+        db.commit()
 
     dev_otp: str | None = None
     if user.email_verified_at is None:

@@ -1,4 +1,4 @@
-"""Notifications API: list, unread counts, mark read (single and bulk), scoping."""
+"""Notifications API: list, unread counts, mark read (single and bulk), delete, broadcast, scoping."""
 from __future__ import annotations
 
 
@@ -129,3 +129,63 @@ def test_notifications_are_scoped_to_user(client, world, f):
 
 def test_notifications_require_auth(client):
     assert client.get("/api/v1/notifications").status_code == 401
+
+
+def test_delete_notification_owner_and_cross_user(client, world, f):
+    inv_h = world.h["inv"]
+    case = _make_case(client, world, f, title="delete me")
+    client.post(f"/api/v1/cases/{case['id']}/status", headers=inv_h, json={"status": "triaged"})
+    nid = client.get("/api/v1/notifications", headers=inv_h).json()["items"][0]["id"]
+
+    # another user (same org) cannot delete it: 404, and the row survives
+    assert client.delete(f"/api/v1/notifications/{nid}", headers=world.h["owner"]).status_code == 404
+    assert nid in [n["id"] for n in client.get("/api/v1/notifications", headers=inv_h).json()["items"]]
+
+    # the owner deletes it, and it disappears from their list
+    assert client.delete(f"/api/v1/notifications/{nid}", headers=inv_h).status_code == 204
+    assert nid not in [n["id"] for n in client.get("/api/v1/notifications", headers=inv_h).json()["items"]]
+
+
+def test_admin_can_delete_any_notification(client, world, f):
+    inv_h = world.h["inv"]
+    case = _make_case(client, world, f, title="admin delete")
+    client.post(f"/api/v1/cases/{case['id']}/status", headers=inv_h, json={"status": "triaged"})
+    nid = client.get("/api/v1/notifications", headers=inv_h).json()["items"][0]["id"]
+    assert client.delete(f"/api/v1/notifications/{nid}", headers=world.h["admin"]).status_code == 204
+
+
+def test_delete_notification_auth_and_format(client, world):
+    assert client.delete("/api/v1/notifications/00000000-0000-0000-0000-000000000000").status_code == 401
+    assert client.delete("/api/v1/notifications/not-a-uuid", headers=world.h["inv"]).status_code == 422
+    assert client.delete(
+        "/api/v1/notifications/00000000-0000-0000-0000-000000000000", headers=world.h["inv"]
+    ).status_code == 404
+
+
+def test_broadcast_reaches_every_active_user(client, world, f):
+    f.user(world.users["inv"].role, world.org_a, active=False)  # inactive accounts receive nothing
+    r = client.post(
+        "/api/v1/notifications/broadcast", headers=world.h["admin"],
+        json={"title": "Scheduled maintenance", "message": "The platform will be read-only on Sunday."},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["recipients"] == body["created"] == 6  # world users, minus the inactive one
+    # every active user (including the sender) sees the persisted row through the normal API
+    for name, h in world.h.items():
+        items = client.get("/api/v1/notifications", headers=h).json()["items"]
+        assert any(n["type"] == "broadcast" and n["title"] == "Scheduled maintenance" for n in items), name
+
+
+def test_broadcast_is_admin_only(client, world):
+    for name in ("inv", "owner", "partner", "outsider"):
+        r = client.post("/api/v1/notifications/broadcast", headers=world.h[name], json={"title": "x", "message": "y"})
+        assert r.status_code == 403, name
+    assert client.post("/api/v1/notifications/broadcast", json={"title": "x", "message": "y"}).status_code == 401
+
+
+def test_broadcast_validates_input(client, world):
+    h = world.h["admin"]
+    assert client.post("/api/v1/notifications/broadcast", headers=h, json={"title": "", "message": "m"}).status_code == 422
+    assert client.post("/api/v1/notifications/broadcast", headers=h, json={"title": "t", "message": ""}).status_code == 422
+    assert client.post("/api/v1/notifications/broadcast", headers=h, json={"title": "t"}).status_code == 422

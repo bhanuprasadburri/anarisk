@@ -124,3 +124,29 @@ def test_legacy_detection_endpoints_still_work(world, f):
     b = f.client.post("/api/v1/detection/analyze", json={"brand_id": str(world.brand["id"])}, headers=h)
     assert b.status_code == 200, b.text
     assert b.json()["analyzed"] == 2
+
+
+def test_detections_purpose_filter_and_signals_entity_context(world, f):
+    e1, e2 = _setup(f, world)
+    h = world.h["inv"]
+    # the Purpose filter is the entity's provenance: manual entities only, to begin with
+    assert f.client.get("/api/v1/detections", params={"provenance": "manual"}, headers=h).json()["total"] == 2
+    assert f.client.get("/api/v1/detections", params={"provenance": "synthetic"}, headers=h).json()["total"] == 0
+    assert f.client.get("/api/v1/detections", params={"provenance": "bogus"}, headers=h).status_code == 422
+
+    # a synthetic (sample) entity joins the feed under its own purpose
+    syn = f.entity(h, world.brand["id"], "website", provenance="synthetic",
+                   attributes={"url": "https://acmebank-demo-sample.top/claim"})
+    assert f.client.post(f"/api/v1/entities/{syn['id']}/analyze", headers=h).status_code == 201
+    page = f.client.get("/api/v1/detections", params={"provenance": "synthetic"}, headers=h).json()
+    assert page["total"] == 1 and page["items"][0]["entity"]["id"] == syn["id"]
+    assert page["items"][0]["entity"]["provenance"] == "synthetic"
+    assert f.client.get("/api/v1/detections", params={"provenance": "manual"}, headers=h).json()["total"] == 2
+    # the filter composes with brand scope (outsider org sees nothing of org A)
+    assert f.client.get("/api/v1/detections", params={"provenance": "synthetic"}, headers=world.h["outsider"]).json()["total"] == 0
+
+    # signals now carry their entity context; filters still behave with the join
+    sigs = f.client.get("/api/v1/detection/signals", params={"entity_id": syn["id"]}, headers=h).json()
+    assert sigs["total"] == 4 and all(s["entity"]["id"] == syn["id"] for s in sigs["items"])
+    assert all(s["entity"]["display_name"] and s["entity"]["provenance"] == "synthetic" for s in sigs["items"])
+    assert f.client.get("/api/v1/detection/signals", params={"signal_type": "nonsense"}, headers=h).status_code == 422

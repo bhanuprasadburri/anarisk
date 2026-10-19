@@ -27,7 +27,7 @@ from app.models import (
     CaseEscalation, DigitalEntity, EntityRelationship, EvidenceRecord,
     InvestigationCase, MonitoringTarget, RiskAssessment,
 )
-from app.models.enums import CaseStatus, EntityType, Severity, UserRole
+from app.models.enums import CaseStatus, EntityType, Provenance, Severity, UserRole
 from app.repositories.access import brand_scope, get_brand_for_user
 
 MAX_RANGE_DAYS = 366
@@ -68,10 +68,12 @@ def _case_scope(actor, brand_id):
     return and_(*conds)
 
 
-def _entity_stmt(actor, brand_id):
+def _entity_stmt(actor, brand_id, provenance: Provenance | None = None):
     stmt = select(DigitalEntity).where(brand_scope(actor, DigitalEntity.brand_id))
     if brand_id:
         stmt = stmt.where(DigitalEntity.brand_id == brand_id)
+    if provenance:
+        stmt = stmt.where(DigitalEntity.provenance == provenance)
     return stmt
 
 
@@ -94,14 +96,15 @@ def _verification_status(ev: EvidenceRecord) -> str:
         return "pending"
 
 
-def overview(db: Session, actor, from_: str | None, to: str | None, brand_id: uuid.UUID | None) -> dict:
+def overview(db: Session, actor, from_: str | None, to: str | None, brand_id: uuid.UUID | None,
+             provenance: Provenance | None = None) -> dict:
     if brand_id:
         get_brand_for_user(db, actor, brand_id)
     d_from, d_to = parse_range(from_, to)
     start, end = _bounds(d_from, d_to)
 
     # ---- entity snapshot ----
-    ent = _entity_stmt(actor, brand_id)
+    ent = _entity_stmt(actor, brand_id, provenance)
     entities = db.scalars(ent).all()
     by_type = Counter(e.entity_type.value for e in entities)
     by_sev = Counter(e.current_severity.value for e in entities)
@@ -120,6 +123,8 @@ def overview(db: Session, actor, from_: str | None, to: str | None, brand_id: uu
     )
     if brand_id:
         det_stmt = det_stmt.where(DigitalEntity.brand_id == brand_id)
+    if provenance:
+        det_stmt = det_stmt.where(DigitalEntity.provenance == provenance)
     detections = db.scalar(det_stmt) or 0
 
     trend_stmt = (
@@ -129,6 +134,8 @@ def overview(db: Session, actor, from_: str | None, to: str | None, brand_id: uu
     )
     if brand_id:
         trend_stmt = trend_stmt.where(DigitalEntity.brand_id == brand_id)
+    if provenance:
+        trend_stmt = trend_stmt.where(DigitalEntity.provenance == provenance)
     trend_rows = db.execute(trend_stmt.group_by("d")).all()
     trend_map = {r[0].isoformat() if hasattr(r[0], "isoformat") else str(r[0]): (float(r[1]) if r[1] is not None else None, r[2])
                  for r in trend_rows}
@@ -144,6 +151,8 @@ def overview(db: Session, actor, from_: str | None, to: str | None, brand_id: uu
                                            EvidenceRecord.created_at >= start, EvidenceRecord.created_at < end)
     if brand_id:
         ev_stmt = ev_stmt.where(EvidenceRecord.brand_id == brand_id)
+    if provenance:
+        ev_stmt = ev_stmt.where(EvidenceRecord.provenance == provenance)
     ev_rows = db.scalars(ev_stmt).all()
     ev_status = Counter(_verification_status(e) for e in ev_rows)
     ev_kind = Counter(e.kind.value for e in ev_rows)
@@ -210,6 +219,8 @@ def overview(db: Session, actor, from_: str | None, to: str | None, brand_id: uu
         "threats_by_channel counts ONLY high/critical-risk entities ('entities at risk') per product channel.",
         "Totals, distributions and channels are point-in-time snapshots; detections, evidence counts and the "
         "risk trend respect the selected date range.",
+        "When a purpose (provenance) filter is active, entity, detection, evidence, relationship and app summaries "
+        "use that provenance. Case workflow counts remain scope-wide because cases do not have a provenance field.",
     ]
 
     return {
@@ -258,7 +269,8 @@ def _iso(v) -> str:
     return v
 
 
-def export_csv(db: Session, actor, report: str, from_: str | None, to: str | None, brand_id: uuid.UUID | None) -> tuple[str, str]:
+def export_csv(db: Session, actor, report: str, from_: str | None, to: str | None, brand_id: uuid.UUID | None,
+               provenance: Provenance | None = None) -> tuple[str, str]:
     if report not in CSV_COLUMNS:
         raise ValidationFailure(
             f"Unknown report '{report}'. Valid reports: {', '.join(sorted(CSV_COLUMNS))}. "
@@ -280,6 +292,8 @@ def export_csv(db: Session, actor, report: str, from_: str | None, to: str | Non
                 .order_by(RiskAssessment.assessed_at.desc()))
         if brand_id:
             stmt = stmt.where(DigitalEntity.brand_id == brand_id)
+        if provenance:
+            stmt = stmt.where(DigitalEntity.provenance == provenance)
         for a, e in db.execute(stmt):
             rows.append([e.display_name, e.entity_type.value, a.risk_score, a.confidence_score,
                          a.severity.value, a.assessed_at])
@@ -292,7 +306,7 @@ def export_csv(db: Session, actor, report: str, from_: str | None, to: str | Non
                          c.status.value, c.assigned_to.email if c.assigned_to else "",
                          c.created_at, c.updated_at])
     elif report == "entities":
-        stmt = _entity_stmt(actor, brand_id).where(
+        stmt = _entity_stmt(actor, brand_id, provenance).where(
             DigitalEntity.created_at >= start, DigitalEntity.created_at < end).order_by(DigitalEntity.created_at.desc())
         for e in db.scalars(stmt):
             rows.append([e.display_name, e.canonical_id, e.entity_type.value, e.platform,
@@ -305,6 +319,8 @@ def export_csv(db: Session, actor, report: str, from_: str | None, to: str | Non
                 .order_by(MonitoringTarget.created_at.desc()))
         if brand_id:
             stmt = stmt.where(MonitoringTarget.brand_id == brand_id)
+        if provenance:
+            stmt = stmt.where(DigitalEntity.provenance == provenance)
         for t, e in db.execute(stmt):
             attrs = (e.attributes or {}) if e else {}
             rows.append([attrs.get("app_name", "") or t.package_id, t.package_id, t.store,
@@ -316,6 +332,8 @@ def export_csv(db: Session, actor, report: str, from_: str | None, to: str | Non
                                             EvidenceRecord.created_at >= start, EvidenceRecord.created_at < end)
         if brand_id:
             stmt = stmt.where(EvidenceRecord.brand_id == brand_id)
+        if provenance:
+            stmt = stmt.where(EvidenceRecord.provenance == provenance)
         for ev in db.scalars(stmt.order_by(EvidenceRecord.created_at.desc())):
             rows.append([ev.id, ev.kind.value, (ev.meta or {}).get("original_filename") or "",
                          ev.entity.display_name if ev.entity else "", ev.sha256 or "",

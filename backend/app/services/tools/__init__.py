@@ -7,7 +7,7 @@ organization* brand references (admins see every brand), so cross-tenant data ne
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sqlalchemy import select
@@ -18,9 +18,11 @@ from app.models import Brand, BrandReference, ToolAnalysis, User
 from app.models.enums import ReferenceKind
 from app.services.tools.common import Finding, compute_overall, sanitize_input, METHODOLOGY_VERSION
 from app.services.tools.email_analyzer import analyze_email, parse_eml
+from app.services.tools.image_analyzer import analyze_image, embedded_software_tag, run_ai_review
 from app.services.tools.job_analyzer import analyze_job_offer
 from app.services.tools.social_analyzer import analyze_social_profile
 from app.services.tools.url_analyzer import analyze_url
+from app.utils.images import inspect_image, perceptual_hash, sha256_hex
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ class OfficialContext:
     brand_names: list[str]
     domains: list[str]
     handles: list[dict[str, str]]  # [{"value": "@acme", "platform": "instagram", "brand": "Acme"}]
+    image_hashes: list[dict[str, str]] = field(default_factory=list)  # [{"phash": "a1b2…", "brand": "Acme"}]
 
 
 def load_official_context(db: Session, user: User) -> OfficialContext:
@@ -44,6 +47,7 @@ def load_official_context(db: Session, user: User) -> OfficialContext:
     names: list[str] = []
     domains: list[str] = []
     handles: list[dict[str, str]] = []
+    image_hashes: list[dict[str, str]] = []
     for ref, brand in rows:
         if not brand.is_active:
             continue
@@ -53,7 +57,9 @@ def load_official_context(db: Session, user: User) -> OfficialContext:
             domains.append(ref.value)
         elif ref.kind == ReferenceKind.HANDLE:
             handles.append({"value": ref.value, "platform": ref.platform or "", "brand": brand.name})
-    return OfficialContext(names, domains, handles)
+        elif ref.kind == ReferenceKind.IMAGE and ref.perceptual_hash:
+            image_hashes.append({"phash": ref.perceptual_hash, "brand": brand.name})
+    return OfficialContext(names, domains, handles, image_hashes)
 
 
 def _persist(
@@ -114,6 +120,29 @@ def run_url_analysis(db: Session, user: User, payload: dict[str, Any]) -> ToolAn
     subject, findings = analyze_url(payload, ctx.domains)
     row = _persist(db, user, "url", subject, payload, findings)
     return row
+
+
+def run_image_analysis(db: Session, user: User, *, data: bytes, filename: str, context: str) -> ToolAnalysis:
+    """Validate an uploaded image by content, run offline checks + optional AI review, persist."""
+    meta = inspect_image(data)  # raises ValidationFailure (422/413) for non-images or oversized files
+    sha = sha256_hex(data)
+    try:
+        phash = perceptual_hash(data)
+    except Exception:
+        phash = ""  # reported honestly as unable_to_verify by the analyzer
+    software = embedded_software_tag(data)
+    ctx = load_official_context(db, user)
+    subject, findings = analyze_image(
+        sha256=sha, phash=phash, meta=meta, size_bytes=len(data), context=context,
+        image_hashes=ctx.image_hashes, software=software,
+    )
+    findings += run_ai_review(data=data, mime=meta["content_type"], context=context)
+    payload = {
+        "context": context, "filename": filename, "format": meta["format"],
+        "width": meta["width"], "height": meta["height"], "size_bytes": len(data),
+        "sha256": sha, "perceptual_hash": phash,
+    }
+    return _persist(db, user, "image", subject, payload, findings)
 
 
 def get_analysis(db: Session, user: User, analysis_id) -> ToolAnalysis:

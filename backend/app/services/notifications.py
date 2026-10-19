@@ -13,8 +13,10 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from app.core.errors import NotFoundError, ServiceUnavailableError
 from app.models import Notification, User
 from app.models.enums import Severity, UserRole
+from app.services import audit
 
 log = logging.getLogger(__name__)
 
@@ -87,6 +89,42 @@ def mark_read(db: Session, user_id: uuid.UUID, ids: list[uuid.UUID] | None) -> t
     result = db.execute(stmt.values(is_read=True))
     db.commit()
     return result.rowcount or 0, unread_count(db, user_id)
+
+
+def delete_notification(db: Session, actor: User, notification_id: uuid.UUID) -> None:
+    """Delete one notification. Owners may delete their own; administrators may delete any.
+
+    A notification belonging to someone else returns 404 (same convention as cross-tenant
+    reads): the response never confirms that another user's notification exists.
+    """
+    from app.repositories.access import is_admin  # local import: keeps this module dependency-light
+
+    row = db.get(Notification, notification_id)
+    if row is None or (row.user_id != actor.id and not is_admin(actor)):
+        raise NotFoundError("Notification not found")
+    db.delete(row)
+    audit.record(db, actor, "notification.delete", "notification", notification_id)
+    db.commit()
+
+
+def broadcast(db: Session, actor: User, title: str, message: str) -> tuple[int, int]:
+    """Persist an administrator announcement for every active user (in-app rows only).
+
+    Returns ``(recipients, created)``. Raises ``ServiceUnavailableError`` when recipients exist
+    but nothing was stored — a broadcast is never reported as delivered unless the rows were
+    actually written (notify() is all-or-nothing per call).
+    """
+    from app.services.scheduler import SYSTEM_USER_EMAIL  # local import: avoids a module cycle
+
+    recipients = list(db.scalars(
+        select(User.id).where(User.is_active.is_(True), User.email != SYSTEM_USER_EMAIL)
+    ))
+    created = notify(db, recipients, "broadcast", title, message)
+    if recipients and created == 0:
+        raise ServiceUnavailableError("The announcement could not be stored — nothing was delivered")
+    audit.record(db, actor, "notification.broadcast", "announcement", None, details={"recipients": len(recipients)})
+    db.commit()
+    return len(recipients), created
 
 
 def notify_high_risk(db: Session, entity, assessment) -> int:

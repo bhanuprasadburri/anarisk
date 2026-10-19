@@ -11,7 +11,7 @@ from app.models import User
 from app.models.enums import EntityType, Provenance, Severity, SignalStatus, SignalType
 from app.schemas.common import Page
 from app.schemas.detection import (
-    AssessmentOut, BulkAnalyzeRequest, BulkAnalyzeResult, DetectionItem, ModelInfo, SignalOut,
+    AssessmentOut, BulkAnalyzeRequest, BulkAnalyzeResult, DetectionEntityRef, DetectionItem, ModelInfo, SignalOut,
 )
 from app.services import analysis
 
@@ -75,7 +75,13 @@ def analyze(body: BulkAnalyzeRequest, user: User = Depends(require_permission("e
 def signals(p: Pagination = Depends(), entity_id: uuid.UUID | None = None, signal_type: SignalType | None = None, status: SignalStatus | None = None,
             latest_only: bool = True, user: User = Depends(require_permission("entity:read")), db: Session = Depends(get_db)):
     rows, total = analysis.list_signals(db, user, p.page, p.page_size, entity_id, signal_type, status, latest_only)
-    return Page.build([SignalOut.model_validate(r) for r in rows], total, p.page, p.page_size)
+    outs = []
+    for sig, ent in rows:
+        out = SignalOut.model_validate(sig)
+        out.entity = DetectionEntityRef(id=ent.id, display_name=ent.display_name, entity_type=ent.entity_type.value,
+                                        canonical_id=ent.canonical_id, platform=ent.platform, provenance=ent.provenance.value)
+        outs.append(out)
+    return Page.build(outs, total, p.page, p.page_size)
 
 
 @router.get("/detection/assessments/{assessment_id}", response_model=AssessmentOut)

@@ -43,7 +43,7 @@ CATALOG: list[dict[str, Any]] = [
     },
     {
         "key": "instagram", "name": "Instagram", "category": "social",
-        "description": "Monitor public Instagram profiles and hashtags for brand impersonation via the Graph API.",
+        "description": "The Graph API can inspect eligible public professional accounts through Business Discovery; it does not provide unrestricted search across personal profiles or hashtags.",
         "requires_credentials": True,
         "config_fields": [
             {"key": "access_token", "label": "Graph API access token", "type": "secret", "required": True, "placeholder": "IGQVJ..."},
@@ -53,17 +53,17 @@ CATALOG: list[dict[str, Any]] = [
     },
     {
         "key": "google_play", "name": "Google Play", "category": "app_store",
-        "description": "Look up app listings on Google Play (package, publisher, permissions) for lookalike-app monitoring.",
+        "description": "The Android Publisher API is for apps in the authorized developer account; it is not a public catalog search API. This project has no live Google Play catalog connector.",
         "requires_credentials": True,
         "config_fields": [
-            {"key": "developer_key", "label": "Developer API key", "type": "secret", "required": True, "placeholder": "AIza..."},
-            {"key": "report_country", "label": "Report country", "type": "text", "required": False, "placeholder": "us"},
+            {"key": "service_account_email", "label": "Google Cloud service-account email", "type": "text", "required": True, "placeholder": "anarisk-monitor@project.iam.gserviceaccount.com"},
+            {"key": "private_key", "label": "Service-account private key", "type": "secret", "required": True, "placeholder": "-----BEGIN PRIVATE KEY-----"},
         ],
         "docs_url": "https://developers.google.com/android-publisher",
     },
     {
         "key": "app_store", "name": "Apple App Store", "category": "app_store",
-        "description": "Look up App Store listings via the App Store Connect API (JWT issuer/key).",
+        "description": "App Store Connect API credentials manage resources in the developer's own account; they do not search the public App Store catalog. No live public-catalog connector is implemented.",
         "requires_credentials": True,
         "config_fields": [
             {"key": "issuer_id", "label": "Issuer ID", "type": "text", "required": True, "placeholder": "xxxxxxxx-xxxx-..."},

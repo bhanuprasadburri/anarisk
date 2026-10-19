@@ -13,7 +13,9 @@ from app.schemas.case import (
     ResolveRequest,
 )
 from app.schemas.common import Page
+from app.schemas.graph import GraphResponse
 from app.services import cases as svc
+from app.services import graph as graph_svc
 
 router = APIRouter(prefix="/cases", tags=["Cases & Response Workflow"])
 
@@ -53,8 +55,15 @@ def get(case_id: uuid.UUID, user: User = Depends(require_permission("case:read")
     return svc.case_detail_dict(db, user, svc.get_case_for_user(db, user, case_id, detail=True))
 
 
+@router.get("/{case_id}/graph", response_model=GraphResponse,
+            summary="Case sub-graph: the case's linked entities + relationships among them (composed server-side, brand-scoped)")
+def graph(case_id: uuid.UUID, user: User = Depends(require_permission("case:read")), db: Session = Depends(get_db)):
+    case = svc.get_case_for_user(db, user, case_id, detail=True)
+    return graph_svc.case_graph(db, user, case)
+
+
 @router.patch("/{case_id}", response_model=CaseDetail,
-              summary="Edit title / summary / severity (case:triage). Send `version` for optimistic concurrency -> 409 on conflict")
+              summary="Edit title / summary / severity / platforms (case:triage). Send `version` for optimistic concurrency -> 409 on conflict")
 def patch(case_id: uuid.UUID, body: CasePatch, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return _detail(db, user, svc.update_case(db, user, case_id, body))
 

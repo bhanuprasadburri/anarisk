@@ -1,6 +1,6 @@
 # AnaRisk — Project Status & Verification
 
-_Last updated: 2026-10-17. Status labels used below: ✅ **VERIFIED WORKING** (command or
+_Last updated: 2026-10-19. Status labels used below: ✅ **VERIFIED WORKING** (command or
 live check executed and observed), 🟡 **IMPLEMENTED BUT UNVERIFIED** (code + tests exist
 but no live end-to-end run in this environment), ⚠️ **PARTIAL** (works with stated limits),
 🔒 **BLOCKED BY CONFIG** (code complete; needs credentials/environment), ❌ **NOT
@@ -10,8 +10,8 @@ IMPLEMENTED**. Nothing is labeled ✅ by inspection alone._
 
 | Item | Status | Evidence |
 |---|---|---|
-| PostgreSQL (portable, local) for dev + tests | ✅ | PostgreSQL 17.6 local; `nimbus` (dev) and `nimbus_test` databases; all 325 tests run against `nimbus_test` |
-| Migrations 0001–0005 | ✅ | `alembic upgrade head` applied on both DBs. 0003: email verification + email delivery logs. 0004: `tool_analyses` + monitoring scheduler columns/index (`ix_monitoring_targets_due`). 0005: OTP attempts counter on `email_verification_tokens`; `alembic check` reports no model drift |
+| PostgreSQL (portable, local) for dev + tests | ✅ | PostgreSQL 17.6 local; `nimbus` (dev) and `nimbus_test` databases; pytest uses the dedicated `nimbus_test` database |
+| Migrations 0001–0009 | 🟡 | 0006 backfills personal `Self` scopes for organization-less users; 0007 adds feedback; 0008 adds case platforms; 0009 enables image tool analyses. Apply additively with `alembic upgrade head`; this audit did not apply migrations to a deployed database |
 | Seed data | ✅ | `python -m scripts.seed` → 1 org, 6 demo users (created pre-verified, so login works without an OTP), 3 brands, 40 entities, 100 assessments, 60 relationships, 14 cases, 24 evidence, notifications, 6 monitoring targets. All synthetic data labeled as such |
 | Local DNS quirk | ⚠️ | `localhost` resolution is broken/very slow on this machine (~130 s); everything is addressed via `127.0.0.1` (DB URLs, uvicorn, Vite `--host`, Vite proxy target). Documented in README |
 
@@ -19,8 +19,8 @@ IMPLEMENTED**. Nothing is labeled ✅ by inspection alone._
 
 | Item | Status | Evidence |
 |---|---|---|
-| Endpoint surface | ✅ | **107 endpoints / 18 tags** generated from live `openapi.json` → [docs/API.md](API.md) (`backend/scripts/gen_api_docs.py`; schema fetched from app root, base URL configurable via `NIMBUS_API_ROOT`) |
-| Test suite | ✅ | `pytest -q` exit 0 — **330 tests, 0 failures** (auth, email OTP flows, SMTP transport config, RBAC/tenancy, detection, graph, cases, evidence, integrations, monitoring, scheduler, tools, assistant, reports, migrations) |
+| Endpoint surface | ✅ | **114 endpoints / 19 tags** generated from the current in-process OpenAPI schema by `python -m scripts.gen_api_docs`; includes feedback, image-analysis, and provenance filters |
+| Test suite | ✅ | The current backend suite and dashboard purpose-filter regression tests passed in this checkout on 2026-10-19; see the audit report for exact commands |
 | Email OTP signup verification | ✅ | Live over HTTP (dev mode `EMAIL_PROVIDER=none` **and** live `EMAIL_PROVIDER=smtp` via Gmail): register → uniform 201 with honest `email_sent` (+ dev-only 6-digit `dev_otp` only when no provider can deliver) → login blocked with uniform `401 invalid_credentials` (unverified accounts indistinguishable from unknown emails — no enumeration) → wrong code generic 400 → correct code activates → login succeeds → code reuse rejected → resend returns a fresh code then throttles with `status=cooldown` → duplicate register stays uniform (no `email_taken`) → unknown-address verify is byte-identical to wrong-code. Code stored only as keyed HMAC; attempt lockout, TTL, row-locked single-use consumption covered by tests |
 | Email verification & password reset (legacy link flow replaced) | ✅ | Password reset still uses expiring single-use hashed link tokens; production without a configured provider returns an honest 503. Signup verification is code-based (OTP), no email links |
 | Email transports (SMTP / Resend / memory) | 🔵 PROVIDER-ACCEPTED, INBOX NOT DIRECTLY OBSERVED | `memory` transport fully exercised by tests (send, failure, honest `email_sent`). `smtp` transport (now the configured provider: Gmail, `smtp.gmail.com:587`) verified **live**: STARTTLS + app-password AUTH succeed and Gmail accepts the message (`email_delivery_logs` row `provider=smtp, status=sent`); the exact conversation (EHLO→STARTTLS→EHLO→AUTH→DATA→QUIT), From header from `EMAIL_FROM_NAME`+`EMAIL_FROM_ADDRESS`, port-465 SSL variant, signup→verify→login over SMTP, AUTH-failure honesty, and no-secrets-in-logs are locked down by `tests/test_smtp_transport.py`. `resend` transport verified live to the authenticated API level (sandbox sends to the account owner succeeded; **one inbox receipt is evidenced** — the owner completed verification with an OTP code that existed only in the emailed message). Provider acceptance ≠ inbox placement: check spam/promotions; inbox arrival of individual messages is confirmed by the recipient |

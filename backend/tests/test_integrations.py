@@ -29,6 +29,13 @@ def test_catalog_lists_all_providers(client, world):
         assert isinstance(item["config_fields"], list)
         assert item["requires_credentials"] in (True, False)
 
+    play = by_key["google_play"]
+    play_fields = {field["key"]: field for field in play["config_fields"]}
+    assert {"service_account_email", "private_key"} <= play_fields.keys()
+    assert play_fields["private_key"]["type"] == "secret"
+    assert "not a public catalog search API" in play["description"]
+    assert "do not search the public App Store catalog" in by_key["app_store"]["description"]
+
     # Detail of one provider when not configured.
     r = client.get("/api/v1/integrations/x_twitter", headers=h)
     assert r.status_code == 200
@@ -117,14 +124,32 @@ def test_connect_rejects_unknown_field_and_short_secret(client, world):
     assert r.status_code == 422
 
 
-def test_connect_requires_connector_run_permission(client, world):
-    # A brand owner lacks connector:run.
+def test_every_integration_route_is_admin_only(client, world):
+    """org:manage (admin) for every route — reads included — because these store org-wide credentials."""
+    # A brand owner lacks org:manage.
     r = client.post(
         "/api/v1/integrations/x_twitter/connect",
         headers=world.h["owner"],
         json={"config": X_TWITTER_CONFIG},
     )
     assert r.status_code == 403
+
+    # Investigator (has connector:run, but NOT org:manage) is rejected everywhere: 6 endpoints.
+    inv = world.h["inv"]
+    for method, path in (
+        ("GET", "/api/v1/integrations"),
+        ("GET", "/api/v1/integrations/x_twitter"),
+        ("POST", "/api/v1/integrations/x_twitter/connect"),
+        ("POST", "/api/v1/integrations/x_twitter/disconnect"),
+        ("POST", "/api/v1/integrations/x_twitter/test"),
+        ("POST", "/api/v1/integrations/x_twitter/sync"),
+    ):
+        r = client.request(method, path, headers=inv, json={} if method == "POST" else None)
+        assert r.status_code == 403, f"{method} {path} -> {r.status_code}: {r.text}"
+
+    # partner equally locked out; no token at all stays 401
+    assert client.get("/api/v1/integrations", headers=world.h["partner"]).status_code == 403
+    assert client.get("/api/v1/integrations").status_code == 401
 
 
 def test_list_requires_auth(client):

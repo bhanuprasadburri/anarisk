@@ -285,7 +285,8 @@ export const EvidencePage: React.FC = () => {
   const q = searchParams.get('q') || '';
   const chip = searchParams.get('chip') || 'all';
   const typeFilter = searchParams.get('type') || '';
-  const caseId = searchParams.get('case') || '';
+  // Case deep links from the case detail page send `case_id`; keep `case` as a legacy alias.
+  const caseId = searchParams.get('case_id') || searchParams.get('case') || '';
   const verif = searchParams.get('verif') || '';
   const entityId = searchParams.get('entity_id') || '';
   const sort = searchParams.get('sort') || '';
@@ -316,7 +317,7 @@ export const EvidencePage: React.FC = () => {
       (prev) => {
         const next = new URLSearchParams(prev);
         // keep a manual entity scoping only when explicitly asked to
-        ['q', 'type', 'case', 'verif', 'chip', 'sort', 'order'].forEach((k) => next.delete(k));
+        ['q', 'type', 'case', 'case_id', 'verif', 'chip', 'sort', 'order'].forEach((k) => next.delete(k));
         next.delete('page');
         return next;
       },

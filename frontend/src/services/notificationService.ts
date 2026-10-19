@@ -12,6 +12,19 @@ export const notificationService = {
       body: JSON.stringify(ids ? { ids } : {}),
     });
   },
+
+  /** Delete one notification (owner, or an administrator). */
+  async remove(id: string): Promise<void> {
+    await apiRequest(`/notifications/${id}`, { method: 'DELETE' });
+  },
+
+  /** Administrator announcement: persisted for every active user; returns honest delivery counts. */
+  async broadcast(title: string, message: string): Promise<{ recipients: number; created: number }> {
+    return apiRequest(`/notifications/broadcast`, {
+      method: 'POST',
+      body: JSON.stringify({ title, message }),
+    });
+  },
 };
 
 export function notificationLink(item: NotificationItem): string | null {

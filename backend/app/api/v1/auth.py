@@ -40,12 +40,15 @@ def _authenticate_safely(db: Session, email: str, password: str) -> tuple[str, i
 
 
 @router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(rate_limit("register", "register_rate_limit_per_minute"))],
-             summary="Self-register (brand_owner role, no organization until an administrator assigns one). "
-                     "Creates the account UNVERIFIED and emails a 6-digit OTP (uniform response whether or not "
-                     "the address already exists — no account enumeration). dev_otp only outside production "
-                     "with no email provider configured.")
+             summary="Self-register (brand_owner role). Individual signups receive a personal "
+                     "organization with the brand 'Self'; pass organization_name for an organization "
+                     "signup. Creates the account UNVERIFIED and emails a 6-digit OTP (uniform response "
+                     "whether or not the address already exists — no account enumeration). dev_otp only "
+                     "outside production with no email provider configured.")
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
-    return RegisterResponse.model_validate(users_svc.register_public(db, body.email, body.full_name, body.password))
+    return RegisterResponse.model_validate(
+        users_svc.register_public(db, body.email, body.full_name, body.password, body.organization_name)
+    )
 
 
 @router.post("/verify-email", response_model=UserOut,
@@ -101,6 +104,8 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     return users_svc.reset_password(db, body.token, body.new_password)
 
 
-@router.post("/change-password", response_model=UserOut, summary="Change your password (authenticated; current password required)")
+@router.post("/change-password", response_model=UserOut,
+             dependencies=[Depends(rate_limit("change_password", "login_rate_limit_per_minute"))],
+             summary="Change your password (authenticated; current password required)")
 def change_password(body: ChangePasswordRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return users_svc.change_password(db, user, body.current_password, body.new_password)

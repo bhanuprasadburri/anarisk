@@ -15,14 +15,15 @@ router = APIRouter(prefix="/monitoring", tags=["App Monitoring"])
 
 
 @router.get("/apps", response_model=Page[MonitoringTargetOut],
-            summary="Monitored apps: package, store, status + linked entity risk. Filters: q, brand_id, risk_severity, monitoring_status, sort, order")
+            summary="Monitored apps: package, store, status + linked entity risk. Filters: q, store, brand_id, risk_severity, monitoring_status, sort, order")
 def list_apps(p: Pagination = Depends(), q: str | None = Query(None, max_length=100), brand_id: uuid.UUID | None = None,
+              store: str | None = Query(None, pattern="^(google_play|app_store|other)$"),
               risk_severity: Severity | None = None,
               monitoring_status: str | None = Query(None, pattern="^(active|paused)$"),
               sort: str = Query("created_at", pattern="^(package_id|risk_score|last_seen_at|created_at)$"),
               order: str = Query("desc", pattern="^(asc|desc)$"),
               user: User = Depends(require_permission("entity:read")), db: Session = Depends(get_db)):
-    rows, total = svc.list_targets(db, user, page=p.page, page_size=p.page_size, q=q, brand_id=brand_id,
+    rows, total = svc.list_targets(db, user, page=p.page, page_size=p.page_size, q=q, brand_id=brand_id, store=store,
                                    risk_severity=risk_severity, monitoring_status=monitoring_status, sort=sort, order=order)
     return Page.build([MonitoringTargetOut.model_validate(svc.item_dict(r)) for r in rows], total, p.page, p.page_size)
 

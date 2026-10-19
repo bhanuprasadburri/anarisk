@@ -75,6 +75,42 @@ def test_create_list_patch_delete_target(client, world):
     assert r.json()["total"] == 0
 
 
+def test_store_filter_is_server_side(client, world):
+    """GET /monitoring/apps?store=... filters in SQL: one store's rows never leak into another's page."""
+    admin = world.h["admin"]
+    brand_id = world.brand["id"]
+
+    def _create(pkg: str, store: str, url: str | None = None) -> dict:
+        r = client.post(
+            "/api/v1/monitoring/apps",
+            headers=admin,
+            json={"brand_id": brand_id, "package_id": pkg, "store": store, "store_url": url},
+        )
+        assert r.status_code == 201, r.text
+        return r.json()["target"]
+
+    gp = _create("com.example.playapp", "google_play",
+                 "https://play.google.com/store/apps/details?id=com.example.playapp")
+    ios = _create("1234567890", "app_store")
+
+    r = client.get("/api/v1/monitoring/apps?store=app_store", headers=admin)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == ios["id"]
+    assert all(i["store"] == "app_store" for i in body["items"])
+
+    r = client.get("/api/v1/monitoring/apps?store=google_play", headers=admin)
+    assert r.json()["total"] == 1
+    assert r.json()["items"][0]["id"] == gp["id"]
+
+    # No store param → everything (the filter is opt-in, not a default narrowing).
+    assert client.get("/api/v1/monitoring/apps", headers=admin).json()["total"] == 2
+
+    # An unknown store value is rejected (422) instead of silently returning an unfiltered list.
+    assert client.get("/api/v1/monitoring/apps?store=steam", headers=admin).status_code == 422
+
+
 def test_create_rejects_bad_input(client, world):
     admin = world.h["admin"]
     brand_id = world.brand["id"]

@@ -47,7 +47,7 @@ import {
 import { EmptyState, ErrorState } from '../components/ui/table';
 import { severityColor } from '../components/ui/score';
 import { useToast } from '../components/ui/toast';
-import { ENTITY_TYPE_COLORS, ENTITY_TYPE_LABELS, SEVERITY_LABELS } from '../lib/constants';
+import { ENTITY_TYPE_COLORS, ENTITY_TYPE_LABELS, PROVENANCE_LABELS, SEVERITY_LABELS } from '../lib/constants';
 import { formatNumber, formatRelativeTime } from '../lib/formatters';
 import { cn, scoreTextClass } from '../lib/utils';
 
@@ -229,6 +229,7 @@ export const DashboardPage: React.FC = () => {
 
   const [range, setRange] = useState<DateRangeValue>({ key: '30d' });
   const [brandId, setBrandId] = useState('');
+  const [purpose, setPurpose] = useState('');
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -244,7 +245,10 @@ export const DashboardPage: React.FC = () => {
       if (mode === 'initial') setLoading(true);
       if (mode === 'refresh') setRefreshing(true);
       try {
-        const scoped = brandId ? { brand_id: brandId } : {};
+        const scoped = {
+          ...(brandId ? { brand_id: brandId } : {}),
+          ...(purpose ? { provenance: purpose } : {}),
+        };
         const [stats, overview, prevOverview] = await Promise.all([
           dashboardService.getStats(scoped),
           reportService.getOverview({ ...scoped, from, to }),
@@ -274,7 +278,7 @@ export const DashboardPage: React.FC = () => {
         }
       }
     },
-    [range, brandId]
+    [range, brandId, purpose]
   );
 
   // Initial load + refetch whenever the date range or brand scope changes.
@@ -676,7 +680,7 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ---- Brand scope ---- */}
+      {/* ---- Brand scope and data purpose ---- */}
       <div className="flex flex-wrap items-center gap-2.5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-faint">Scope</span>
         <FilterSelect
@@ -685,6 +689,14 @@ export const DashboardPage: React.FC = () => {
           options={brandOptions}
           label="Brand scope"
           allLabel="All brands"
+        />
+        <span className="ml-2 text-[11px] font-bold uppercase tracking-wider text-faint">Purpose</span>
+        <FilterSelect
+          value={purpose}
+          onChange={setPurpose}
+          options={Object.entries(PROVENANCE_LABELS).map(([value, label]) => ({ value, label }))}
+          label="Purpose"
+          allLabel="All purposes"
         />
       </div>
 

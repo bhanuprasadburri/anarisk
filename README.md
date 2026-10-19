@@ -6,7 +6,7 @@ AnaRisk is a digital threat intelligence & investigation platform for identifyin
 
 | Document | Contents |
 |---|---|
-| [docs/API.md](docs/API.md) | Full API reference (generated from the live OpenAPI schema — 107 endpoints / 18 tags) |
+| [docs/API.md](docs/API.md) | Full API reference (generated from the current OpenAPI schema — 114 endpoints / 19 tags) |
 | [docs/STATUS.md](docs/STATUS.md) | Feature checklist, verification evidence, and known limitations |
 | [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md) | Email OTP verification & password reset: Resend / Gmail SMTP setup, testing, troubleshooting |
 | [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) | Production deployment: Render backend + Vercel frontend, env vars, verification checklist |
@@ -191,7 +191,7 @@ This project is designed as a demo and research platform. By default:
 
 ## Backend API summary
 
-The API exposes 107 endpoints across 18 groups (see [docs/API.md](docs/API.md) for the generated reference):
+The API exposes 114 endpoints across 19 groups (see [docs/API.md](docs/API.md) for the generated reference):
 
 - authentication (register with email OTP verification, login, forgot/reset password,
   resend verification code, verify email code, profile, preferences, change password)

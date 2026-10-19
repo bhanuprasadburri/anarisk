@@ -11,8 +11,9 @@ SECRET_VALUE = "SuperSecret-DoNotEcho-1234567890"
 
 
 # ---------------------------------------------------------------- integrations
-def test_catalog_honest_and_org_scoped(client, world):
-    r = client.get("/api/v1/integrations", headers=world.h["inv"])
+# Every integrations route (reads included) requires org:manage → admin headers throughout.
+def test_catalog_honest_and_org_scoped(client, world, f):
+    r = client.get("/api/v1/integrations", headers=world.h["admin"])
     assert r.status_code == 200, r.text
     body = r.json()
     keys = {i["key"] for i in body["items"]}
@@ -23,15 +24,17 @@ def test_catalog_honest_and_org_scoped(client, world):
     assert item["category"] == "infrastructure" and item["requires_credentials"] is False
     assert item["config_preview"] == {} and item["connected_by"] is None
 
-    # a configuration stored by ANOTHER organization is invisible here (org scoping)
-    assert client.post("/api/v1/integrations/dns_whois/connect", headers=world.h["outsider"],
+    # a configuration stored by ANOTHER organization is invisible here (org scoping):
+    # org B's own admin configures it; org A's admin must still see 'not_configured'
+    admin_b = f.headers(f.user(UserRole.ADMIN, world.org_b))
+    assert client.post("/api/v1/integrations/dns_whois/connect", headers=admin_b,
                        json={"config": {"check_domain": "example.org"}}).status_code == 200
-    r = client.get("/api/v1/integrations", headers=world.h["inv"])
+    r = client.get("/api/v1/integrations", headers=world.h["admin"])
     assert next(i for i in r.json()["items"] if i["key"] == "dns_whois")["status"] == "not_configured"
 
 
 def test_connect_validation_errors(client, world):
-    post = lambda key, cfg: client.post(f"/api/v1/integrations/{key}/connect", headers=world.h["inv"], json={"config": cfg})
+    post = lambda key, cfg: client.post(f"/api/v1/integrations/{key}/connect", headers=world.h["admin"], json={"config": cfg})
     r = post("x_twitter", {})  # missing required secrets
     assert r.status_code == 422
     fields = {d["field"] for d in r.json()["error"]["details"]}
@@ -51,19 +54,19 @@ def test_connect_validation_errors(client, world):
 
 
 def test_test_endpoint_requires_configuration(client, world):
-    r = client.post("/api/v1/integrations/dns_whois/test", headers=world.h["inv"])
+    r = client.post("/api/v1/integrations/dns_whois/test", headers=world.h["admin"])
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "not_configured"
 
 
 def test_dns_whois_connect_and_real_dns_test(client, world):
-    r = client.post("/api/v1/integrations/dns_whois/connect", headers=world.h["inv"],
+    r = client.post("/api/v1/integrations/dns_whois/connect", headers=world.h["admin"],
                     json={"config": {"check_domain": "example.com"}})
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "configured"
-    assert r.json()["connected_by"]["email"] == world.users["inv"].email
+    assert r.json()["connected_by"]["email"] == world.users["admin"].email
 
-    r = client.post("/api/v1/integrations/dns_whois/test", headers=world.h["inv"])
+    r = client.post("/api/v1/integrations/dns_whois/test", headers=world.h["admin"])
     assert r.status_code == 200, r.text
     body = r.json()
     assert isinstance(body["ok"], bool)  # offline CI may fail the lookup: either outcome is honest
@@ -71,33 +74,33 @@ def test_dns_whois_connect_and_real_dns_test(client, world):
     assert body["checked_at"]
 
     # disconnect back to not_configured, and testing it again fails
-    r = client.post("/api/v1/integrations/dns_whois/disconnect", headers=world.h["inv"])
+    r = client.post("/api/v1/integrations/dns_whois/disconnect", headers=world.h["admin"])
     assert r.status_code == 200 and r.json()["status"] == "not_configured"
-    assert client.post("/api/v1/integrations/dns_whois/test", headers=world.h["inv"]).status_code == 400
+    assert client.post("/api/v1/integrations/dns_whois/test", headers=world.h["admin"]).status_code == 400
 
 
 def test_secrets_never_echoed_after_connect(client, world):
     cfg = {"bearer_token": SECRET_VALUE, "api_key": "another-secret-key-9876", "api_secret": "third-secret-key-5432"}
-    r = client.post("/api/v1/integrations/x_twitter/connect", headers=world.h["inv"], json={"config": cfg})
+    r = client.post("/api/v1/integrations/x_twitter/connect", headers=world.h["admin"], json={"config": cfg})
     assert r.status_code == 200, r.text
     assert SECRET_VALUE not in r.text
 
-    r = client.get("/api/v1/integrations", headers=world.h["inv"])
+    r = client.get("/api/v1/integrations", headers=world.h["admin"])
     assert r.status_code == 200 and SECRET_VALUE not in r.text
     item = next(i for i in r.json()["items"] if i["key"] == "x_twitter")
     assert item["status"] == "configured"
     assert item["config_preview"]["bearer_token"] == "••••"
     assert item["config_preview"]["api_key"] == "••••"
-    assert item["connected_by"]["email"] == world.users["inv"].email
+    assert item["connected_by"]["email"] == world.users["admin"].email
 
-    r = client.get("/api/v1/integrations/x_twitter", headers=world.h["inv"])
+    r = client.get("/api/v1/integrations/x_twitter", headers=world.h["admin"])
     assert r.status_code == 200 and SECRET_VALUE not in r.text
 
 
 def test_credential_provider_test_is_honest_not_fake(client, world):
-    client.post("/api/v1/integrations/x_twitter/connect", headers=world.h["inv"], json={"config": {
+    client.post("/api/v1/integrations/x_twitter/connect", headers=world.h["admin"], json={"config": {
         "bearer_token": SECRET_VALUE, "api_key": "another-secret-key-9876", "api_secret": "third-secret-key-5432"}})
-    r = client.post("/api/v1/integrations/x_twitter/test", headers=world.h["inv"])
+    r = client.post("/api/v1/integrations/x_twitter/test", headers=world.h["admin"])
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is False  # NEVER fake success for credentials stored but unverifiable
@@ -106,18 +109,18 @@ def test_credential_provider_test_is_honest_not_fake(client, world):
 
 def test_sync_runs_sample_connector_or_rejects(client, world):
     # configured provider WITH a sample connector -> honest synthetic sync
-    client.post("/api/v1/integrations/x_twitter/connect", headers=world.h["inv"], json={"config": {
+    client.post("/api/v1/integrations/x_twitter/connect", headers=world.h["admin"], json={"config": {
         "bearer_token": SECRET_VALUE, "api_key": "another-secret-key-9876", "api_secret": "third-secret-key-5432"}})
-    r = client.post("/api/v1/integrations/x_twitter/sync", headers=world.h["inv"], json={})
+    r = client.post("/api/v1/integrations/x_twitter/sync", headers=world.h["admin"], json={})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["synced"] >= 1 and body["created_entities"] >= 1
     assert "synthetic" in body["message"].lower()
 
     # configured provider WITHOUT a connector -> 400 no_connector_available
-    assert client.post("/api/v1/integrations/web_scraping/connect", headers=world.h["inv"],
+    assert client.post("/api/v1/integrations/web_scraping/connect", headers=world.h["admin"],
                        json={"config": {"target_url": "https://example.com/page"}}).status_code == 200
-    r = client.post("/api/v1/integrations/web_scraping/sync", headers=world.h["inv"], json={})
+    r = client.post("/api/v1/integrations/web_scraping/sync", headers=world.h["admin"], json={})
     assert r.status_code == 400
     assert r.json()["error"]["code"] == "no_connector_available"
 

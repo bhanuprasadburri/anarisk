@@ -141,7 +141,7 @@ def create_target(db: Session, actor: User, body: MonitoringCreate) -> dict[str,
 
 
 def list_targets(db: Session, actor: User, *, page: int, page_size: int, q: str | None, brand_id: uuid.UUID | None,
-                 risk_severity: Severity | None, monitoring_status: str | None, sort: str, order: str):
+                 store: str | None, risk_severity: Severity | None, monitoring_status: str | None, sort: str, order: str):
     stmt = (
         select(MonitoringTarget)
         .outerjoin(DigitalEntity, DigitalEntity.id == MonitoringTarget.entity_id)
@@ -149,6 +149,8 @@ def list_targets(db: Session, actor: User, *, page: int, page_size: int, q: str 
     )
     if brand_id:
         stmt = stmt.where(MonitoringTarget.brand_id == brand_id)
+    if store:
+        stmt = stmt.where(MonitoringTarget.store == store)
     if monitoring_status:
         stmt = stmt.where(MonitoringTarget.monitoring_status == monitoring_status)
     if risk_severity:

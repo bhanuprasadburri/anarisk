@@ -15,6 +15,8 @@ export const authService = {
     email: string;
     password: string;
     full_name: string;
+    /** Optional: organization ("workspace") name for organization signups. */
+    organization_name?: string;
   }): Promise<RegisterResult> {
     return apiRequest<RegisterResult>('/auth/register', {
       method: 'POST',

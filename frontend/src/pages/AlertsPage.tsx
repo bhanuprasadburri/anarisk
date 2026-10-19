@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Bell, BellOff, CheckCheck, Clock, Pause, Play, RefreshCw, Radar, AlertTriangle,
+  Bell, BellOff, CheckCheck, Clock, Pause, Play, RefreshCw, Radar, AlertTriangle, Trash2,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/page-header';
 import { Button } from '../components/ui/button';
@@ -11,6 +11,8 @@ import { Tabs } from '../components/ui/tabs';
 import { EmptyState, ErrorState, Pagination } from '../components/ui/table';
 import { TableSkeleton } from '../components/ui/misc';
 import { useToast } from '../components/ui/toast';
+import { Input, Field, Select } from '../components/ui/input';
+import { useAuth } from '../hooks/useAuth';
 import { ApiError } from '../services/apiClient';
 import { notificationService } from '../services/notificationService';
 import { monitoringService } from '../services/monitoringService';
@@ -26,6 +28,7 @@ const TYPE_ICONS: Record<string, string> = {
   case_status: '🔄',
   case_resolved: '✅',
   evidence_added: '📎',
+  broadcast: '📣',
   integration_sync: '🔌',
   monitoring_stopped: '⏸️',
 };
@@ -60,6 +63,16 @@ const NotificationList: React.FC = () => {
     }
   };
 
+  const removeOne = async (n: NotificationItem) => {
+    try {
+      await notificationService.remove(n.id);
+      toast.success('Notification deleted', n.title);
+      query.refetch();
+    } catch (err) {
+      toast.error('Could not delete notification', errMessage(err));
+    }
+  };
+
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
@@ -85,11 +98,11 @@ const NotificationList: React.FC = () => {
       {query.data && query.data.items.length > 0 && (
         <ul className="space-y-2">
           {query.data.items.map((n) => (
-            <li key={n.id}>
+            <li key={n.id} className="flex items-start gap-1.5">
               <button
                 onClick={() => markOne(n)}
                 className={cn(
-                  'flex w-full items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-brand-200',
+                  'flex min-w-0 flex-1 items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-left transition-colors hover:border-brand-200',
                   !n.is_read && 'border-brand-100 bg-brand-50/50'
                 )}
               >
@@ -109,6 +122,14 @@ const NotificationList: React.FC = () => {
                   </span>
                 </span>
                 {!n.is_read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
+              </button>
+              <button
+                onClick={() => removeOne(n)}
+                aria-label={`Delete notification: ${n.title}`}
+                title="Delete notification"
+                className="mt-3 shrink-0 rounded-lg p-1.5 text-faint transition-colors hover:bg-danger-100 hover:text-danger focus-ring"
+              >
+                <Trash2 className="h-4 w-4" />
               </button>
             </li>
           ))}
@@ -130,8 +151,14 @@ const NotificationList: React.FC = () => {
 const Watchlist: React.FC = () => {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { brands, activeBrand, hasPermission } = useAuth();
+  const canSubmit = hasPermission('entity:submit');
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [addingBusy, setAddingBusy] = useState(false);
+  const [form, setForm] = useState({ brand_id: activeBrand?.id || '', store: 'google_play', package_id: '', store_url: '' });
 
   const query = useQuery<PaginatedResponse<MonitoringTarget>>({
     queryKey: ['alerts-watchlist'],
@@ -165,16 +192,109 @@ const Watchlist: React.FC = () => {
     }
   };
 
+  const add = async () => {
+    if (!form.brand_id || !form.package_id.trim()) return;
+    setAddingBusy(true);
+    try {
+      await monitoringService.addApp({
+        brand_id: form.brand_id,
+        package_id: form.package_id.trim(),
+        store: form.store,
+        store_url: form.store_url.trim() || undefined,
+      });
+      toast.success('Added to watchlist', form.package_id.trim());
+      setAdding(false);
+      setForm((f) => ({ ...f, package_id: '', store_url: '' }));
+      qc.invalidateQueries({ queryKey: ['alerts-watchlist'] });
+    } catch (err) {
+      toast.error('Could not add to watchlist', errMessage(err));
+    } finally {
+      setAddingBusy(false);
+    }
+  };
+
+  const remove = async (t: MonitoringTarget) => {
+    setRemovingId(t.id);
+    try {
+      await monitoringService.removeApp(t.id);
+      toast.success('Removed from watchlist', t.package_id);
+      qc.invalidateQueries({ queryKey: ['alerts-watchlist'] });
+    } catch (err) {
+      toast.error('Could not remove from watchlist', errMessage(err));
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-muted">
           Background scheduler runs due targets automatically — state lives in the database and survives restarts.
         </p>
-        <Button variant="outline" size="sm" onClick={() => query.refetch()}>
-          <RefreshCw className={cn('h-4 w-4', query.isFetching && 'animate-spin')} /> Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          {canSubmit && !adding && (
+            <Button size="sm" onClick={() => setAdding(true)}>
+              Add to watchlist
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => query.refetch()}>
+            <RefreshCw className={cn('h-4 w-4', query.isFetching && 'animate-spin')} /> Refresh
+          </Button>
+        </div>
       </div>
+
+      {adding && canSubmit && (
+        <div className="mb-4 rounded-xl border border-line bg-surface p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Brand" required>
+              <Select value={form.brand_id} onChange={(e) => setForm((f) => ({ ...f, brand_id: e.target.value }))}>
+                <option value="">Select a brand…</option>
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Store" required>
+              <Select value={form.store} onChange={(e) => setForm((f) => ({ ...f, store: e.target.value }))}>
+                <option value="google_play">Google Play</option>
+                <option value="app_store">App Store</option>
+              </Select>
+            </Field>
+            <Field label="Package ID" required>
+              <Input
+                value={form.package_id}
+                onChange={(e) => setForm((f) => ({ ...f, package_id: e.target.value }))}
+                placeholder="com.example.app"
+              />
+            </Field>
+            <Field label="Store URL (optional)">
+              <Input
+                value={form.store_url}
+                onChange={(e) => setForm((f) => ({ ...f, store_url: e.target.value }))}
+                placeholder="https://…"
+              />
+            </Field>
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              size="sm"
+              loading={addingBusy}
+              disabled={!form.brand_id || !form.package_id.trim()}
+              onClick={() => void add()}
+            >
+              Start monitoring
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setAdding(false)} disabled={addingBusy}>
+              Cancel
+            </Button>
+          </div>
+          <p className="mt-2 text-[11.5px] leading-relaxed text-muted">
+            Sync runs against the sample connector until a live store integration is configured —
+            results are labelled as sample data, never as live store fetches.
+          </p>
+        </div>
+      )}
 
       {query.isLoading && <TableSkeleton rows={5} />}
       {query.isError && (
@@ -184,7 +304,7 @@ const Watchlist: React.FC = () => {
         <EmptyState
           icon={<Radar className="h-6 w-6" />}
           title="Nothing on the watchlist"
-          description="Add packages in Mobile Apps to monitor them for abuse."
+          description="Add a package above, or from the Mobile Apps page, to start monitoring it."
         />
       )}
       {query.data && query.data.items.length > 0 && (
@@ -238,6 +358,18 @@ const Watchlist: React.FC = () => {
                 >
                   {t.monitoring_status === 'active' ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                 </Button>
+                {canSubmit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => remove(t)}
+                    loading={removingId === t.id}
+                    disabled={removingId !== null}
+                    title="Remove from watchlist"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </li>
           ))}

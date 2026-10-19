@@ -15,7 +15,7 @@ import { useAuth } from '../hooks/useAuth';
 import { caseService } from '../services/caseService';
 import { entityService } from '../services/entityService';
 import { ApiError } from '../services/apiClient';
-import { CASE_STATUS_LABELS, ENTITY_TYPE_LABELS, SEVERITY_LABELS } from '../lib/constants';
+import { CASE_STATUS_LABELS, ENTITY_TYPE_LABELS, PLATFORM_LABELS, SEVERITY_LABELS } from '../lib/constants';
 import { formatDate, formatRelativeTime } from '../lib/formatters';
 import { CaseUserRef, DigitalEntity, InvestigationCase, PaginatedResponse } from '../types';
 
@@ -53,6 +53,7 @@ const CaseFormModal: React.FC<CaseFormModalProps> = ({
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [severity, setSeverity] = useState('medium');
+  const [platforms, setPlatforms] = useState<string[]>([]);
   const [picked, setPicked] = useState<Array<{ id: string; name: string }>>([]);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<DigitalEntity[]>([]);
@@ -66,12 +67,16 @@ const CaseFormModal: React.FC<CaseFormModalProps> = ({
     setTitle(record?.title || '');
     setSummary(record?.summary || '');
     setSeverity(record?.severity || 'medium');
+    setPlatforms(record?.platforms || []);
     setPicked([]);
     setQuery('');
     setResults([]);
     setErrors({});
     setSaving(false);
   }, [open, record, brands]);
+
+  const togglePlatform = (key: string) =>
+    setPlatforms((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
 
   // Debounced entity search (create mode only — edits add entities from the workspace)
   useEffect(() => {
@@ -114,6 +119,7 @@ const CaseFormModal: React.FC<CaseFormModalProps> = ({
           title: title.trim(),
           summary,
           severity,
+          platforms,
           version: record.version,
         });
         toast.success('Case updated', `${updated.case_number} saved`);
@@ -125,6 +131,7 @@ const CaseFormModal: React.FC<CaseFormModalProps> = ({
           title: title.trim(),
           summary: summary.trim() || undefined,
           entity_ids: picked.map((p) => p.id),
+          platforms,
         });
         toast.success('Case created', created.case_number);
         onSaved(created);
@@ -232,6 +239,31 @@ const CaseFormModal: React.FC<CaseFormModalProps> = ({
             onChange={(e) => setSummary(e.target.value)}
           />
           <p className="mt-1 text-right text-xs text-faint">{summary.length}/10000</p>
+        </Field>
+
+        <Field label="Platforms" hint="Optional — where this case spans (click to toggle).">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Case platforms">
+            {Object.entries(PLATFORM_LABELS)
+              .filter(([key]) => key !== 'twitter') // 'x' is the canonical key; 'twitter' is its legacy alias
+              .map(([key, label]) => {
+                const active = platforms.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => togglePlatform(key)}
+                    className={
+                      active
+                        ? 'rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100'
+                        : 'rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-brand-200 hover:text-ink-700'
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+          </div>
         </Field>
 
         {isEdit ? (

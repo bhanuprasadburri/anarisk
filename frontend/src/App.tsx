@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, ProtectedRoute } from './hooks/useAuth';
+import { AuthProvider, ProtectedRoute, useAuth } from './hooks/useAuth';
 import { ToastProvider } from './components/ui/toast';
 import { AppShell } from './components/layout/AppShell';
 import { LoadingBlock } from './components/ui/misc';
@@ -58,6 +58,12 @@ const Page: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <Suspense fallback={<LoadingBlock label="Loading page…" />}>{children}</Suspense>
 );
 
+/** Land on the first page the role is authorized for (partners have no dashboard access). */
+const RoleLanding: React.FC = () => {
+  const { hasPermission } = useAuth();
+  return <Navigate to={hasPermission('dashboard:read') ? '/dashboard' : '/cases'} replace />;
+};
+
 export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
@@ -79,7 +85,7 @@ export const App: React.FC = () => {
                   </ProtectedRoute>
                 }
               >
-                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route index element={<RoleLanding />} />
               </Route>
               {[
                 { path: '/dashboard', el: <DashboardPage /> },

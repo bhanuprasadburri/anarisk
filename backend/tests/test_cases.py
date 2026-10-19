@@ -245,3 +245,58 @@ def test_audit_trail_records_significant_changes(client, ctx):
         assert expected in actions, expected
     assert actions.count("case.status_change") == 3                                                  # triaged, under_review, resolved (assign/escalate have their own audit actions)
     assert all(x["actor_email"] and x["created_at"] for x in a["items"])
+
+
+def test_case_platforms_persist_through_create_and_patch(client, ctx):
+    case = mk(client, ctx, platforms=["x", "instagram"])
+    assert case["platforms"] == ["x", "instagram"]
+    # default: empty list, never null
+    assert mk(client, ctx)["platforms"] == []
+
+    cid = case["id"]
+    r = client.patch(f"/api/v1/cases/{cid}", headers=ctx.h, json={"platforms": ["tiktok"]})
+    assert r.status_code == 200 and r.json()["platforms"] == ["tiktok"]
+    assert client.get(f"/api/v1/cases/{cid}", headers=ctx.h).json()["platforms"] == ["tiktok"]   # persisted on read
+
+    # values are constrained to the PLATFORM_LABELS keys
+    assert client.patch(f"/api/v1/cases/{cid}", headers=ctx.h, json={"platforms": ["myspace"]}).status_code == 422
+    assert client.post("/api/v1/cases", headers=ctx.h, json={
+        "brand_id": ctx.bid, "title": "bad platform", "entity_ids": [ctx.e1["id"]], "platforms": ["myspace"],
+    }).status_code == 422
+
+    # a patch without platforms leaves the stored tags untouched
+    r = client.patch(f"/api/v1/cases/{cid}", headers=ctx.h, json={"title": "Renamed platform case"})
+    assert r.status_code == 200
+    assert r.json()["platforms"] == ["tiktok"] and r.json()["title"] == "Renamed platform case"
+
+
+def test_case_graph_composed_server_side(client, ctx):
+    cid = mk(client, ctx)["id"]
+    g = client.get(f"/api/v1/cases/{cid}/graph", headers=ctx.h)
+    assert g.status_code == 200, g.text
+    body = g.json()
+    assert set(body) == {"nodes", "edges", "node_count", "edge_count", "cluster_count"}
+    assert {n["id"] for n in body["nodes"]} == {ctx.e1["id"], ctx.e2["id"]}
+    assert body["edge_count"] == 0
+
+    # a relationship among the case's entities shows up in the case sub-graph
+    rel = client.post("/api/v1/graph/relationships", headers=ctx.h, json={
+        "source_entity_id": ctx.e1["id"], "target_entity_id": ctx.e2["id"],
+        "relationship_type": "shares_image", "confidence": 0.9, "evidence_note": "same creative",
+    })
+    assert rel.status_code in (200, 201), rel.text
+    g2 = client.get(f"/api/v1/cases/{cid}/graph", headers=ctx.h).json()
+    assert g2["node_count"] == 2 and g2["edge_count"] == 1 and g2["cluster_count"] == 1
+
+    # read is case:read scoped: 401 unauthenticated, 404 out of scope (outsiders, unknown id)
+    assert client.get(f"/api/v1/cases/{cid}/graph").status_code == 401
+    assert client.get(f"/api/v1/cases/{cid}/graph", headers=ctx.w.h["outsider"]).status_code == 404
+    assert client.get("/api/v1/cases/00000000-0000-0000-0000-000000000000/graph", headers=ctx.h).status_code == 404
+    # partners only see cases handed off to them: 404 before escalation, readable after
+    p = ctx.w.h["partner"]
+    assert client.get(f"/api/v1/cases/{cid}/graph", headers=p).status_code == 404
+    to_under_review(client, ctx, cid)
+    client.post(f"/api/v1/cases/{cid}/assign", headers=ctx.h, json={"assignee_id": str(ctx.w.users["inv"].id)})
+    esc = client.post(f"/api/v1/cases/{cid}/escalate", headers=ctx.h, json={"partner_type": "legal", "reason": "legal review"})
+    assert esc.status_code in (200, 201), esc.text
+    assert client.get(f"/api/v1/cases/{cid}/graph", headers=p).status_code == 200

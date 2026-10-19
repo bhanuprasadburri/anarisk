@@ -5,26 +5,50 @@ from app.models.enums import UserRole
 from tests.conftest import PASSWORD
 
 
-def test_register_creates_orgless_brand_owner_and_hides_hash(client, db):
+def test_register_creates_scoped_brand_owner_and_hides_hash(client, db):
     r = client.post("/api/v1/auth/register", json={"email": "New@Test.Example", "full_name": "New User", "password": PASSWORD})
     assert r.status_code == 201
     body = r.json()
     # uniform verification response: email echoed, nothing sensitive, no role/org disclosure
     assert body["email"] == "new@test.example" and body["verification_required"] is True
     assert "hashed_password" not in body and "password" not in body and "id" not in body
-    from app.models import User
+    from app.models import Brand, Organization, User
     u = db.query(User).one()
-    assert u.role.value == "brand_owner" and u.organization_id is None  # forced server-side
+    assert u.role.value == "brand_owner"  # forced server-side
+    # individual signup: a personal organization with the standard brand "Self"
+    assert u.organization_id is not None
+    org = db.query(Organization).one()
+    assert org.id == u.organization_id and org.name == "Personal"
+    brands = db.query(Brand).all()
+    assert [b.name for b in brands] == ["Self"] and brands[0].organization_id == org.id
     assert u.email_verified_at is None  # not activated until the OTP is confirmed
     assert u.hashed_password != PASSWORD and u.hashed_password.startswith("$2")
 
 
-def test_register_cannot_choose_role_or_org(client, db):
+def test_register_cannot_choose_role_or_join_an_org(client, db):
     r = client.post("/api/v1/auth/register", json={"email": "x@test.example", "full_name": "X", "password": PASSWORD, "role": "administrator"})
     assert r.status_code == 201 and "role" not in r.json()  # the response never reflects caller-chosen roles
-    from app.models import User
+    from app.models import Organization, User
     u = db.query(User).one()
-    assert u.role.value == "brand_owner" and u.organization_id is None
+    assert u.role.value == "brand_owner" and u.organization_id is not None  # scoped server-side
+    # an organization_name creates a NEW workspace; it can never join an existing one
+    assert db.query(Organization).count() == 1
+    r2 = client.post("/api/v1/auth/register", json={
+        "email": "y@test.example", "full_name": "Y", "password": PASSWORD,
+        "organization_name": db.query(Organization).one().name,
+    })
+    assert r2.status_code == 201
+    assert db.query(Organization).count() == 2  # duplicate name -> a distinct new organization
+    assert db.query(User).count() == 2
+
+
+def test_repeat_signup_does_not_duplicate_scope(client, db):
+    payload = {"email": "dup@test.example", "full_name": "D", "password": PASSWORD}
+    assert client.post("/api/v1/auth/register", json=payload).status_code == 201
+    # pending-account resend path must not create a second personal org or brand
+    assert client.post("/api/v1/auth/register", json=payload).status_code == 201
+    from app.models import Brand, Organization
+    assert db.query(Organization).count() == 1 and db.query(Brand).count() == 1
 
 
 def test_register_weak_password_and_duplicate(client, db):

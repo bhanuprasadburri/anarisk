@@ -8,6 +8,7 @@ from app.models.case import (
 from app.models.entity import (
     CollectionRecord, DetectionSignal, DigitalEntity, EntityRelationship, EvidenceRecord, RiskAssessment,
 )
+from app.models.feedback import Feedback
 from app.models.integration import IntegrationConfig, MonitoringSyncRun, MonitoringTarget
 from app.models.notification import Notification, PasswordResetToken
 from app.models.tool import ToolAnalysis
@@ -18,5 +19,5 @@ __all__ = [
     "CaseEscalation", "CaseEvent", "CaseEvidenceLink", "CaseNote", "InvestigationCase", "CollectionRecord",
     "DetectionSignal", "DigitalEntity", "EntityRelationship", "EvidenceRecord", "RiskAssessment",
     "IntegrationConfig", "MonitoringTarget", "MonitoringSyncRun", "Notification", "PasswordResetToken", "Organization", "User",
-    "EmailVerificationToken", "EmailDeliveryLog", "ToolAnalysis",
+    "EmailVerificationToken", "EmailDeliveryLog", "ToolAnalysis", "Feedback",
 ]

@@ -123,7 +123,7 @@ def create_case(db: Session, actor: User, data: CaseCreate, *, idempotency_key: 
     case = InvestigationCase(
         case_number=_next_case_number(db), brand_id=brand.id, title=data.title.strip(), summary=data.summary, status=CaseStatus.DETECTED,
         severity=sev, confidence=conf, risk_score=risk, risk_assessment_id=aid, cluster_key=cluster_key, created_by_id=actor.id,
-        idempotency_key=idempotency_key,
+        idempotency_key=idempotency_key, platforms=list(dict.fromkeys(data.platforms)),
     )
     db.add(case)
     try:
@@ -320,7 +320,7 @@ def add_entities(db: Session, actor: User, case_id: uuid.UUID, entity_ids: list[
 
 # ---------- update / delete ----------
 def update_case(db: Session, actor: User, case_id: uuid.UUID, body) -> InvestigationCase:
-    """Edit title / summary / severity. Optional `version` guards against concurrent edits (409)."""
+    """Edit title / summary / severity / platforms. Optional `version` guards against concurrent edits (409)."""
     _require(actor, "case:triage")
     case = get_case_for_user(db, actor, case_id, lock=True, detail=True)
     if body.version is not None and body.version != case.version:
@@ -338,6 +338,11 @@ def update_case(db: Session, actor: User, case_id: uuid.UUID, body) -> Investiga
     if body.severity is not None and body.severity != case.severity:
         changes["severity"] = [case.severity.value, body.severity.value]
         case.severity = body.severity
+    if body.platforms is not None:
+        new_platforms = list(dict.fromkeys(body.platforms))
+        if new_platforms != list(case.platforms or []):
+            changes["platforms"] = new_platforms
+            case.platforms = new_platforms
     if not changes:
         return get_case_for_user(db, actor, case.id, detail=True)
     _touch(case)
@@ -422,7 +427,7 @@ def case_detail_dict(db: Session, actor: User, case: InvestigationCase) -> dict:
         "created_at": case.created_at, "updated_at": case.updated_at, "resolved_at": case.resolved_at, "summary": case.summary, "cluster_key": case.cluster_key,
         "risk_assessment": ra, "escalated_at": case.escalated_at, "escalation_summary": case.escalation_summary, "resolution_outcome": case.resolution_outcome,
         "resolution_summary": case.resolution_summary, "resolved_by": case.resolved_by, "created_by": case.created_by, "entities": ents,
-        "evidence": case_evidence, "notes": case.notes,
+        "evidence": case_evidence, "notes": case.notes, "platforms": list(case.platforms or []),
         "events": case.events, "escalations": case.escalations, "assignments": case.assignments, "allowed_transitions": allowed_transitions(case, actor), "version": case.version,
     }, from_attributes=True)
 

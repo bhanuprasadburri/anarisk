@@ -71,6 +71,15 @@ export interface DetectionSignal {
   evidence_refs: Array<Record<string, any>>;
   metadata: Record<string, any>;
   created_at: string;
+  /** Joined entity context (present on /detection/signals listings). */
+  entity?: {
+    id: string;
+    display_name: string;
+    entity_type: string;
+    canonical_id: string;
+    platform?: string | null;
+    provenance: string;
+  } | null;
 }
 
 export interface RiskAssessment {
@@ -276,6 +285,7 @@ export interface InvestigationCase {
   assignments?: CaseAssignment[];
   allowed_transitions?: CaseStatus[];
   version?: number;
+  platforms?: string[];
 }
 
 export interface AuditLog {
@@ -366,6 +376,24 @@ export interface NotificationItem {
 
 export interface NotificationListResponse extends PaginatedResponse<NotificationItem> {
   unread_count: number;
+}
+
+export type FeedbackCategory = 'bug' | 'feature' | 'content' | 'other';
+export type FeedbackStatus = 'open' | 'resolved';
+
+export interface FeedbackItem {
+  id: string;
+  user_id: string;
+  organization_id: string | null;
+  brand_id: string | null;
+  category: FeedbackCategory;
+  message: string;
+  page_ref?: string | null;
+  related_case_id?: string | null;
+  status: FeedbackStatus;
+  user_email?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface IntegrationConfigField {
@@ -567,7 +595,7 @@ export interface ToolAnalysis {
   id: string;
   organization_id?: string | null;
   created_by_id?: string | null;
-  tool: ToolKey;
+  tool: ToolKey | 'image';
   subject: string;
   input_summary?: Record<string, unknown> | null;
   findings: ToolFinding[];

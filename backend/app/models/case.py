@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, enum_col, tz_col, uuid_pk, utcnow
@@ -41,6 +41,8 @@ class InvestigationCase(TimestampMixin, Base):
     resolved_at: Mapped[datetime | None] = tz_col()
     resolved_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # Platforms this case spans (values validated against PLATFORM_LABELS keys at the API layer)
+    platforms: Mapped[list[Any]] = mapped_column(default=list, nullable=False, server_default=text("'[]'"))
 
     brand: Mapped["Brand"] = relationship(lazy="joined")  # noqa: F821
     assigned_to: Mapped["User | None"] = relationship(foreign_keys=[assigned_to_id], lazy="joined")  # noqa: F821

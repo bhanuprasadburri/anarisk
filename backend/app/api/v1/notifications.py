@@ -1,11 +1,15 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+import uuid
 
-from app.api.deps import Pagination, get_current_user
+from app.api.deps import Pagination, get_current_user, require_permission
+from app.core.rate_limit import rate_limit
 from app.db.session import get_db
 from app.models import Notification, User
-from app.schemas.notification import MarkReadRequest, MarkReadResponse, NotificationPage, NotificationOut
+from app.schemas.notification import (
+    BroadcastRequest, BroadcastResponse, MarkReadRequest, MarkReadResponse, NotificationPage, NotificationOut,
+)
 from app.services import notifications as svc
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
@@ -33,3 +37,18 @@ def mark_read(body: MarkReadRequest | None = None, user: User = Depends(get_curr
     ids = body.ids if body else None
     updated, unread = svc.mark_read(db, user.id, ids)
     return MarkReadResponse(updated=updated, unread_count=unread)
+
+
+@router.post("/broadcast", response_model=BroadcastResponse,
+             dependencies=[Depends(rate_limit("broadcast", "login_rate_limit_per_minute"))],
+             summary="Administrator announcement: persists one in-app notification for every active user "
+                     "(delivery counts are reported honestly — rows are only counted once stored)")
+def broadcast(body: BroadcastRequest, user: User = Depends(require_permission("org:manage")), db: Session = Depends(get_db)):
+    recipients, created = svc.broadcast(db, user, body.title, body.message)
+    return BroadcastResponse(recipients=recipients, created=created)
+
+
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT,
+               summary="Delete one of your notifications (administrators may delete any user's)")
+def delete_(notification_id: uuid.UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    svc.delete_notification(db, user, notification_id)

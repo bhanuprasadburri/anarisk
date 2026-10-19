@@ -2,7 +2,7 @@ import { apiRequest, qs } from './apiClient';
 import { DashboardStats, MobileAppsSummary } from '../types';
 
 export const dashboardService = {
-  async getStats(params: { brand_id?: string; from?: string; to?: string } = {}): Promise<DashboardStats> {
+  async getStats(params: { brand_id?: string; from?: string; to?: string; provenance?: string } = {}): Promise<DashboardStats> {
     return apiRequest<DashboardStats>(`/dashboard/stats${qs(params)}`);
   },
 

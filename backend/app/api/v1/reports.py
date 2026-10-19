@@ -21,6 +21,7 @@ from app.core.errors import ForbiddenError
 from app.core.permissions import has_permission
 from app.db.session import get_db
 from app.models import User
+from app.models.enums import Provenance
 from app.services import reports as svc
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
@@ -39,10 +40,11 @@ def overview(
     from_: str | None = Query(None, alias="from", description="ISO date (yyyy-mm-dd); default 30 days ago"),
     to: str | None = Query(None, alias="to", description="ISO date (yyyy-mm-dd); default today"),
     brand_id: uuid.UUID | None = None,
+    provenance: Provenance | None = None,
     user: User = Depends(require_permission("dashboard:read")),
     db: Session = Depends(get_db),
 ):
-    return svc.overview(db, user, from_, to, brand_id)
+    return svc.overview(db, user, from_, to, brand_id, provenance)
 
 
 @router.get("/export/csv", summary="CSV export: report=threats|cases|entities|apps|evidence (attachment download)")
@@ -51,6 +53,7 @@ def export_csv(
     from_: str | None = Query(None, alias="from"),
     to: str | None = Query(None, alias="to"),
     brand_id: uuid.UUID | None = None,
+    provenance: Provenance | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -59,7 +62,7 @@ def export_csv(
         # unknown report values fall through to the service, which rejects them with 422
         # BEFORE reading any data - so this mapping cannot be bypassed.
         raise ForbiddenError(f"Your role does not permit this action ({perm})")
-    filename, content = svc.export_csv(db, user, report, from_, to, brand_id)
+    filename, content = svc.export_csv(db, user, report, from_, to, brand_id, provenance)
     return Response(
         content=content,
         media_type="text/csv; charset=utf-8",

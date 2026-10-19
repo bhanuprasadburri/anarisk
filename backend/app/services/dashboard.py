@@ -16,10 +16,12 @@ SENSITIVE_PERMISSIONS = {
 }
 
 
-def _scoped_entities(actor: User, brand_id: uuid.UUID | None):
+def _scoped_entities(actor: User, brand_id: uuid.UUID | None, provenance: Provenance | None = None):
     stmt = select(DigitalEntity).where(brand_scope(actor, DigitalEntity.brand_id))
     if brand_id:
         stmt = stmt.where(DigitalEntity.brand_id == brand_id)
+    if provenance:
+        stmt = stmt.where(DigitalEntity.provenance == provenance)
     return stmt
 
 
@@ -38,10 +40,10 @@ def _entity_row(e: DigitalEntity) -> dict:
             "provenance": e.provenance.value, "last_assessed_at": e.last_assessed_at, "first_seen_at": e.first_seen_at}
 
 
-def stats(db: Session, actor: User, brand_id: uuid.UUID | None = None) -> dict:
+def stats(db: Session, actor: User, brand_id: uuid.UUID | None = None, provenance: Provenance | None = None) -> dict:
     if brand_id:
         get_brand_for_user(db, actor, brand_id)
-    ent = _scoped_entities(actor, brand_id).subquery()
+    ent = _scoped_entities(actor, brand_id, provenance).subquery()
     total = db.scalar(select(func.count()).select_from(ent)) or 0
     by_sev = dict(db.execute(select(ent.c.current_severity, func.count()).group_by(ent.c.current_severity)).all())
     by_type = dict(db.execute(select(ent.c.entity_type, func.count()).group_by(ent.c.entity_type)).all())
@@ -52,9 +54,9 @@ def stats(db: Session, actor: User, brand_id: uuid.UUID | None = None) -> dict:
     open_cases = sum(v for k, v in by_status.items() if k != CaseStatus.RESOLVED.value)
     unassigned_open = db.scalar(select(func.count()).select_from(InvestigationCase).where(
         cscope, InvestigationCase.status != CaseStatus.RESOLVED, InvestigationCase.assigned_to_id.is_(None))) or 0
-    recent = db.scalars(_scoped_entities(actor, brand_id).where(DigitalEntity.last_assessed_at.is_not(None))
+    recent = db.scalars(_scoped_entities(actor, brand_id, provenance).where(DigitalEntity.last_assessed_at.is_not(None))
                         .order_by(DigitalEntity.last_assessed_at.desc()).limit(10)).all()
-    top = db.scalars(_scoped_entities(actor, brand_id).where(DigitalEntity.current_risk_score.is_not(None))
+    top = db.scalars(_scoped_entities(actor, brand_id, provenance).where(DigitalEntity.current_risk_score.is_not(None))
                      .order_by(DigitalEntity.current_risk_score.desc()).limit(10)).all()
     activity = db.execute(
         select(CaseEvent, InvestigationCase.case_number, InvestigationCase.title).join(InvestigationCase, InvestigationCase.id == CaseEvent.case_id)

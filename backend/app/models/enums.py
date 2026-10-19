@@ -115,3 +115,17 @@ class CaseEventType(str, enum.Enum):
     REOPENED = "reopened"
     ENTITY_ADDED = "entity_added"
     ENTITY_REMOVED = "entity_removed"
+
+
+class FeedbackCategory(str, enum.Enum):
+    """What kind of feedback a submission is (drives triage in the admin view)."""
+
+    BUG = "bug"
+    FEATURE = "feature"
+    CONTENT = "content"
+    OTHER = "other"
+
+
+class FeedbackStatus(str, enum.Enum):
+    OPEN = "open"
+    RESOLVED = "resolved"

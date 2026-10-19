@@ -3,6 +3,7 @@ import { MonitoringCreateResult, MonitoringSyncResult, MonitoringTarget, Paginat
 
 export interface MonitoringListParams {
   q?: string;
+  store?: string;
   brand_id?: string;
   risk_severity?: string;
   monitoring_status?: string;

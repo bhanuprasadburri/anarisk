@@ -28,12 +28,40 @@ function resolveApiBase(raw: string | undefined): string {
 
 export const API_BASE_URL = resolveApiBase(import.meta.env.VITE_API_BASE_URL);
 
+/**
+ * Absolute URL to the backend's API docs (Swagger UI).
+ *
+ * The frontend serves client routes from index.html, so a relative `href="/docs"` resolves to
+ * the SPA shell (blank/404) instead of FastAPI's docs. Derive the backend origin from the raw
+ * env value: unset (local dev behind the Vite proxy) → where the local backend runs on
+ * 127.0.0.1; an absolute backend URL → its /docs; otherwise the configured origin's /docs.
+ */
+export function apiDocsUrl(): string {
+  const raw = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+  if (!raw) return 'http://127.0.0.1:8000/docs';
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      return `${new URL(raw).origin}/docs`;
+    } catch {
+      /* fall through */
+    }
+  }
+  return `${raw.replace(/\/api\/v1\/?$/, '')}/docs`;
+}
+
 export const ENTITY_TYPE_LABELS: Record<string, string> = {
   social_profile: 'Social Profile',
   website: 'Website',
   domain: 'Domain',
   image: 'Image',
   mobile_app: 'Mobile App',
+};
+
+/** Purpose of the data behind a detection (backend field `provenance`). */
+export const PROVENANCE_LABELS: Record<string, string> = {
+  manual: 'Manual',
+  collected: 'Collected',
+  synthetic: 'Synthetic (sample)',
 };
 
 export const ENTITY_TYPE_COLORS: Record<string, string> = {

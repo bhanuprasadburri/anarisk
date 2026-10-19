@@ -31,17 +31,20 @@ import {
   type RangeKey,
 } from '../components/ui/misc';
 import { useToast } from '../components/ui/toast';
+import { useAuth } from '../hooks/useAuth';
 import { detectionService } from '../services/detectionService';
 import {
   DetectionItem,
   DetectionModelInfo,
   DetectionSignal,
+  PaginatedResponse,
   RiskAssessment,
   SignalType,
 } from '../types';
 import {
   DETECTION_STATUS_LABELS,
   ENTITY_TYPE_LABELS,
+  PROVENANCE_LABELS,
   SEVERITY_LABELS,
   SIGNAL_STATUS_LABELS,
   SIGNAL_TYPE_LABELS,
@@ -104,6 +107,9 @@ function signalMeta(signalType?: SignalType | null) {
 export const ThreatIntelPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const { activeBrand } = useAuth();
+  // brand scope: the brand chosen at login (admins have none → global view), same as the risk graph
+  const brandId = activeBrand?.id;
 
   /* ---------------- URL state ---------------- */
   const tab = ((): TabId => {
@@ -114,6 +120,8 @@ export const ThreatIntelPage: React.FC = () => {
   const severity = searchParams.get('severity') || '';
   const entityType = searchParams.get('entity_type') || '';
   const status = searchParams.get('status') || '';
+  // "Purpose" in the UI = the entity's provenance (manual / collected / synthetic)
+  const purpose = searchParams.get('purpose') || '';
   const rangeKey = searchParams.get('range') || '';
   const customFrom = searchParams.get('from') || '';
   const customTo = searchParams.get('to') || '';
@@ -172,6 +180,8 @@ export const ThreatIntelPage: React.FC = () => {
         severity: severity || undefined,
         entity_type: entityType || undefined,
         status: status || undefined,
+        provenance: purpose || undefined,
+        brand_id: brandId,
         from,
         to,
         sort,
@@ -193,7 +203,7 @@ export const ThreatIntelPage: React.FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, severity, entityType, status, from, to, sort, order, page, pageSize, refreshKey]);
+  }, [q, severity, entityType, status, purpose, brandId, from, to, sort, order, page, pageSize, refreshKey]);
 
   /* ---------------- Stat strip (parallel light totals) ---------------- */
   const [stats, setStats] = useState<{ total: number; critical: number; high: number; medium: number; low: number } | null>(
@@ -202,10 +212,13 @@ export const ThreatIntelPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    // same filter set as the table (minus the per-bucket severity) so the strip always matches the rows
     const base = {
       q: q || undefined,
       entity_type: entityType || undefined,
       status: status || undefined,
+      provenance: purpose || undefined,
+      brand_id: brandId,
       from,
       to,
       page_size: 1,
@@ -234,7 +247,45 @@ export const ThreatIntelPage: React.FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, entityType, status, from, to, refreshKey]);
+  }, [q, entityType, status, purpose, brandId, from, to, refreshKey]);
+
+  /* ---------------- Signals tab (real signal results) ---------------- */
+  const [sigType, setSigType] = useState('');
+  const [sigStatus, setSigStatus] = useState('');
+  const [sigPage, setSigPage] = useState(1);
+  const [sigPageSize, setSigPageSize] = useState(20);
+  const [signals, setSignals] = useState<PaginatedResponse<DetectionSignal> | null>(null);
+  const [sigLoading, setSigLoading] = useState(true);
+  const [sigError, setSigError] = useState<string | null>(null);
+  const [sigNonce, setSigNonce] = useState(0);
+
+  useEffect(() => {
+    if (tab !== 'signals') return; // lazy-load: only fetch when the tab is open
+    let cancelled = false;
+    setSigLoading(true);
+    setSigError(null);
+    detectionService
+      .listSignals({
+        signal_type: sigType || undefined,
+        status: sigStatus || undefined,
+        page: sigPage,
+        page_size: sigPageSize,
+      })
+      .then((res) => {
+        if (cancelled) return;
+        setSignals(res);
+        setSigLoading(false);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setSigError(err.message || 'Failed to load signals.');
+        setSigLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, sigType, sigStatus, sigPage, sigPageSize, sigNonce]);
 
   /* ---------------- Selection + detail modal ---------------- */
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -451,9 +502,9 @@ export const ThreatIntelPage: React.FC = () => {
     []
   );
 
-  const hasFilters = !!(q || severity || entityType || status || rangeKey);
+  const hasFilters = !!(q || severity || entityType || status || purpose || rangeKey);
   const clearFilters = () =>
-    setParams({ q: undefined, severity: undefined, entity_type: undefined, status: undefined, range: undefined, from: undefined, to: undefined });
+    setParams({ q: undefined, severity: undefined, entity_type: undefined, status: undefined, purpose: undefined, range: undefined, from: undefined, to: undefined });
 
   /* ---------------- Stat strip rendering ---------------- */
   const statCards = stats
@@ -476,80 +527,201 @@ export const ThreatIntelPage: React.FC = () => {
   const thresholds = model?.severity_thresholds || null;
   const confidenceInfo = model?.confidence;
 
-  const renderModelBody = (variant: 'signals' | 'model') => {
+  /* ---------------- Signals tab body (real signal results) ---------------- */
+  const sigColumns: Column<DetectionSignal>[] = [
+    {
+      key: 'entity',
+      header: 'Entity',
+      cell: (s) =>
+        s.entity ? (
+          <Link
+            to={`/entities/${s.entity_id}`}
+            className="block truncate text-[13px] font-semibold text-ink transition-colors hover:text-brand-600 focus-ring rounded"
+          >
+            {s.entity.display_name}
+            <span className="mt-0.5 block text-[11px] font-medium text-faint">
+              {ENTITY_TYPE_LABELS[s.entity.entity_type] || s.entity.entity_type}
+            </span>
+          </Link>
+        ) : (
+          <span className="text-[12px] text-faint">{s.entity_id.slice(0, 8)}…</span>
+        ),
+    },
+    {
+      key: 'signal_type',
+      header: 'Signal',
+      cell: (s) => {
+        const meta = signalMeta(s.signal_type);
+        return (
+          <span className="flex items-center gap-2">
+            <span
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+              style={{ backgroundColor: `${meta.color}18`, color: meta.color }}
+              aria-hidden="true"
+            >
+              {meta.icon}
+            </span>
+            <span className="text-[12.5px] font-semibold text-ink">
+              {SIGNAL_TYPE_LABELS[s.signal_type] || s.signal_type}
+            </span>
+          </span>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (s) => <Badge tone={signalStatusTone(s.status)}>{SIGNAL_STATUS_LABELS[s.status] || s.status}</Badge>,
+    },
+    {
+      key: 'score',
+      header: 'Score',
+      className: 'w-[90px]',
+      cell: (s) => (
+        <span className="text-[12.5px] font-bold tabular-nums text-ink-700">
+          {s.score != null ? s.score.toFixed(2) : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'explanation',
+      header: 'Explanation',
+      cell: (s) => (
+        <span className="line-clamp-2 max-w-[420px] text-[12px] text-muted" title={s.explanation}>
+          {s.explanation || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: 'Detected',
+      className: 'w-[130px]',
+      cell: (s) => (
+        <Tooltip content={formatDate(s.created_at)}>
+          <span className="text-[12px] text-muted">{formatRelativeTime(s.created_at)}</span>
+        </Tooltip>
+      ),
+    },
+  ];
+
+  const renderSignalsBody = () => {
+    const sigFiltersActive = !!(sigType || sigStatus);
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <FilterSelect
+            label="Signal type"
+            value={sigType}
+            onChange={(v) => {
+              setSigType(v);
+              setSigPage(1);
+            }}
+            options={Object.entries(SIGNAL_TYPE_LABELS).map(([value, label]) => ({ value, label }))}
+          />
+          <FilterSelect
+            label="Signal status"
+            value={sigStatus}
+            onChange={(v) => {
+              setSigStatus(v);
+              setSigPage(1);
+            }}
+            options={Object.entries(SIGNAL_STATUS_LABELS).map(([value, label]) => ({ value, label }))}
+          />
+          {sigFiltersActive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSigType('');
+                setSigStatus('');
+                setSigPage(1);
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
+          <div className="ml-auto">
+            <Button
+              variant="outline"
+              icon={<RefreshCw className="h-4 w-4" />}
+              onClick={() => setSigNonce((k) => k + 1)}
+              aria-label="Refresh signals"
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <Card>
+          {sigLoading && !signals && (
+            <div className="space-y-3 p-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={`sig-sk-${i}`} className="h-11 w-full" />
+              ))}
+            </div>
+          )}
+
+          {sigError && !sigLoading && (
+            <ErrorState title="Failed to load signals" message={sigError} onRetry={() => setSigNonce((k) => k + 1)} />
+          )}
+
+          {!sigError && signals && signals.items.length === 0 && !sigLoading && (
+            <EmptyState
+              icon={<Activity className="h-6 w-6" />}
+              title="No signals match"
+              description={
+                sigFiltersActive
+                  ? 'Try adjusting the signal type or status filters.'
+                  : 'Signals appear here once entities have been analyzed by the detection engine.'
+              }
+              action={
+                sigFiltersActive ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSigType('');
+                      setSigStatus('');
+                      setSigPage(1);
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                ) : undefined
+              }
+            />
+          )}
+
+          {!sigError && signals && signals.items.length > 0 && (
+            <DataTable<DetectionSignal> columns={sigColumns} rows={signals.items} rowKey={(s) => s.id} />
+          )}
+
+          {!sigError && signals && !sigLoading && (
+            <Pagination
+              page={sigPage}
+              pages={signals.pages}
+              total={signals.total}
+              onPageChange={(p) => setSigPage(p)}
+              pageSize={sigPageSize}
+              onPageSizeChange={(s) => {
+                setSigPageSize(s);
+                setSigPage(1);
+              }}
+              className="border-t border-line-soft"
+            />
+          )}
+        </Card>
+      </div>
+    );
+  };
+
+  /* ---------------- Risk Assessment tab body ---------------- */
+  const renderModelBody = () => {
     if (modelLoading && !model) return <LoadingBlock label="Loading model information…" />;
     if (modelError && !model)
       return <ErrorState title="Model information unavailable" message={modelError} onRetry={() => setRefreshKey((k) => k + 1)} />;
     if (!model) return null;
 
-    if (variant === 'signals') {
-      return (
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 rounded-2xl border border-warning-100 bg-warning-100/50 p-4">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-600" aria-hidden="true" />
-            <div>
-              <p className="text-[13px] font-bold text-ink">Hand-written rules, not a trained model</p>
-              <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">
-                Each signal family below is a transparent heuristic computed from observable data. Weights decide how
-                much each family contributes to the combined risk score. Every result still requires analyst review —
-                confirm with evidence before taking action.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            {ruleDescriptions.map((r) => {
-              const w = weights[r.signal_type];
-              const meta = signalMeta(r.signal_type as SignalType);
-              return (
-                <Card key={r.signal_type}>
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className="flex h-8 w-8 items-center justify-center rounded-lg"
-                          style={{ backgroundColor: `${meta.color}18`, color: meta.color }}
-                          aria-hidden="true"
-                        >
-                          {meta.icon}
-                        </span>
-                        <CardTitle>{r.label}</CardTitle>
-                      </div>
-                      <Badge tone="outline">
-                        {typeof w === 'number' ? `${Math.round(w * 100)}% weight` : 'n/a'}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-[12.5px] leading-relaxed text-muted">{r.rules}</p>
-                    {typeof w === 'number' && (
-                      <div className="mt-3">
-                        <div className="h-1.5 overflow-hidden rounded-full bg-line-soft">
-                          <div
-                            className="h-full rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(100, w * 100)}%`, backgroundColor: meta.color }}
-                          />
-                        </div>
-                        <p className="mt-1 text-[11px] font-semibold text-faint">
-                          Contributes {Math.round(w * 100)}% of the combined score (when available)
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-            {ruleDescriptions.length === 0 && (
-              <p className="text-[13px] text-muted md:col-span-2">
-                This model version does not publish per-family rule descriptions.
-              </p>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // variant === 'model'
     return (
       <div className="space-y-4">
         <div className="grid gap-4 lg:grid-cols-2">
@@ -689,6 +861,70 @@ export const ThreatIntelPage: React.FC = () => {
           </Card>
         )}
 
+        {/* Plain-English rule descriptions (moved here from the Signals tab, which now lists real signals) */}
+        <section>
+          <div className="mb-3 flex items-start gap-3 rounded-2xl border border-warning-100 bg-warning-100/50 p-4">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-600" aria-hidden="true" />
+            <div>
+              <p className="text-[13px] font-bold text-ink">Hand-written rules, not a trained model</p>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted">
+                Each signal family below is a transparent heuristic computed from observable data. Weights decide how
+                much each family contributes to the combined risk score. Every result still requires analyst review —
+                confirm with evidence before taking action.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {ruleDescriptions.map((r) => {
+              const w = weights[r.signal_type];
+              const meta = signalMeta(r.signal_type as SignalType);
+              return (
+                <Card key={r.signal_type}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="flex h-8 w-8 items-center justify-center rounded-lg"
+                          style={{ backgroundColor: `${meta.color}18`, color: meta.color }}
+                          aria-hidden="true"
+                        >
+                          {meta.icon}
+                        </span>
+                        <CardTitle>{r.label}</CardTitle>
+                      </div>
+                      <Badge tone="outline">
+                        {typeof w === 'number' ? `${Math.round(w * 100)}% weight` : 'n/a'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-[12.5px] leading-relaxed text-muted">{r.rules}</p>
+                    {typeof w === 'number' && (
+                      <div className="mt-3">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-line-soft">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(100, w * 100)}%`, backgroundColor: meta.color }}
+                          />
+                        </div>
+                        <p className="mt-1 text-[11px] font-semibold text-faint">
+                          Contributes {Math.round(w * 100)}% of the combined score (when available)
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+            {ruleDescriptions.length === 0 && (
+              <p className="text-[13px] text-muted md:col-span-2">
+                This model version does not publish per-family rule descriptions.
+              </p>
+            )}
+          </div>
+        </section>
+
         <div className="flex items-start gap-3 rounded-2xl border border-brand-100 bg-brand-gradient-soft p-4">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" aria-hidden="true" />
           <div>
@@ -769,6 +1005,13 @@ export const ThreatIntelPage: React.FC = () => {
               value={status}
               onChange={(v) => setParams({ status: v })}
               options={DETECTION_STATUSES.map((s) => ({ value: s, label: DETECTION_STATUS_LABELS[s] || s }))}
+            />
+            <FilterSelect
+              label="Purpose"
+              value={purpose}
+              onChange={(v) => setParams({ purpose: v })}
+              allLabel="Any purpose"
+              options={Object.entries(PROVENANCE_LABELS).map(([value, label]) => ({ value, label }))}
             />
             <div className="ml-auto flex items-center gap-2.5">
               {hasFilters && (
@@ -882,8 +1125,8 @@ export const ThreatIntelPage: React.FC = () => {
         </>
       )}
 
-      {tab === 'signals' && renderModelBody('signals')}
-      {tab === 'model' && renderModelBody('model')}
+      {tab === 'signals' && renderSignalsBody()}
+      {tab === 'model' && renderModelBody()}
 
       {/* Detection details modal */}
       <Modal

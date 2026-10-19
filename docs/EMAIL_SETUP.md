@@ -85,7 +85,7 @@ Every send (successful, skipped, or failed) is recorded in `email_delivery_logs`
 
 ## Testing without a real inbox
 
-- **Automated**: the backend suite (330 tests) exercises delivery through the `memory`
+- **Automated**: the backend suite exercises delivery through the `memory`
   transport — successful send, provider failure, invalid/expired/locked-out/reused OTP,
   cooldown, rate limiting, and no-enumeration assertions — plus an SMTP suite
   (`tests/test_smtp_transport.py`) that asserts the exact Gmail-style conversation

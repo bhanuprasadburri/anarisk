@@ -134,7 +134,9 @@ def get_assessment(db: Session, actor: User, assessment_id: uuid.UUID) -> RiskAs
 
 
 def list_signals(db: Session, actor: User, page: int, page_size: int, entity_id: uuid.UUID | None, signal_type: SignalType | None, status=None, latest_only: bool = True):
-    stmt = select(DetectionSignal).join(DigitalEntity, DigitalEntity.id == DetectionSignal.entity_id).where(brand_scope(actor, DigitalEntity.brand_id))
+    stmt = (select(DetectionSignal, DigitalEntity)
+            .join(DigitalEntity, DigitalEntity.id == DetectionSignal.entity_id)
+            .where(brand_scope(actor, DigitalEntity.brand_id)))
     if entity_id:
         stmt = stmt.where(DetectionSignal.entity_id == entity_id)
     if signal_type:
@@ -147,8 +149,8 @@ def list_signals(db: Session, actor: User, page: int, page_size: int, entity_id:
         stmt = stmt.join(RiskAssessment, RiskAssessment.id == DetectionSignal.assessment_id).join(
             latest, (latest.c.entity_id == RiskAssessment.entity_id) & (latest.c.t == RiskAssessment.assessed_at))
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    rows = db.scalars(stmt.order_by(DetectionSignal.created_at.desc()).offset((page - 1) * page_size).limit(page_size)).all()
-    return rows, total
+    rows = db.execute(stmt.order_by(DetectionSignal.created_at.desc()).offset((page - 1) * page_size).limit(page_size)).all()
+    return [(sig, ent) for sig, ent in rows], total
 
 
 # ---------- detections feed (latest assessment per entity) ----------

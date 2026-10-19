@@ -52,13 +52,13 @@ import { useAuth } from '../hooks/useAuth';
 import { caseService } from '../services/caseService';
 import { entityService } from '../services/entityService';
 import { evidenceService } from '../services/evidenceService';
-import { graphService } from '../services/graphService';
 import { ApiError, apiRequest } from '../services/apiClient';
 import {
   CASE_STATUS_LABELS,
   ENTITY_TYPE_COLORS,
   ENTITY_TYPE_LABELS,
   EVIDENCE_KIND_LABELS,
+  PLATFORM_LABELS,
   RELATIONSHIP_COLORS,
   RELATIONSHIP_LABELS,
   RESOLUTION_OUTCOME_LABELS,
@@ -228,7 +228,8 @@ const GraphTab: React.FC<GraphTabProps> = ({ data, canRead }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await graphService.getNeighbors(primary.id, 2);
+      // Server-composed case sub-graph: linked entities + relationships among them
+      const res = await caseService.getCaseGraph(data.id);
       const caseIds = new Set(entities.map((e) => e.entity.id));
 
       // BFS depth from the primary entity for a simple radial layout
@@ -251,12 +252,12 @@ const GraphTab: React.FC<GraphTabProps> = ({ data, canRead }) => {
       }
 
       const ring1 = res.nodes.filter((n) => dist[n.id] === 1);
-      const ring2 = res.nodes.filter((n) => (dist[n.id] ?? 3) > 1);
+      const ring2 = res.nodes.filter((n) => dist[n.id] === undefined || dist[n.id] > 1);
       const r1 = ringRadius(ring1.length, 170);
       const r2 = r1 + ringRadius(ring2.length, 150) + 40;
 
       const nodes: CaseFlowNode[] = res.nodes.map((n) => {
-        const d = dist[n.id] ?? 0;
+        const d = dist[n.id];
         let x = 0;
         let y = 0;
         if (d === 1) {
@@ -264,7 +265,8 @@ const GraphTab: React.FC<GraphTabProps> = ({ data, canRead }) => {
           const a = (i / Math.max(ring1.length, 1)) * 2 * Math.PI - Math.PI / 2;
           x = r1 * Math.cos(a);
           y = r1 * Math.sin(a);
-        } else if (d > 1) {
+        } else if (d === undefined || d > 1) {
+          // ring 2: second-degree links AND isolated case entities (no relationships yet)
           const i = ring2.findIndex((r) => r.id === n.id);
           const a = (i / Math.max(ring2.length, 1)) * 2 * Math.PI - Math.PI / 2;
           x = r2 * Math.cos(a);
@@ -298,12 +300,12 @@ const GraphTab: React.FC<GraphTabProps> = ({ data, canRead }) => {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [primary?.id, entities.length]);
+  }, [data.id, primary?.id, entities.length]);
 
   useEffect(() => {
     if (canRead && primary) void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canRead, primary?.id]);
+  }, [canRead, data.id, primary?.id]);
 
   if (!canRead) {
     return (
@@ -1409,6 +1411,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({ open, onClose, data
   const [title, setTitle] = useState(data.title);
   const [summary, setSummary] = useState(data.summary || '');
   const [severity, setSeverity] = useState<string>(data.severity);
+  const [platforms, setPlatforms] = useState<string[]>(data.platforms || []);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -1416,7 +1419,11 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({ open, onClose, data
     setTitle(data.title);
     setSummary(data.summary || '');
     setSeverity(data.severity);
+    setPlatforms(data.platforms || []);
   }, [open, data]);
+
+  const togglePlatform = (key: string) =>
+    setPlatforms((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
 
   const submit = async () => {
     if (title.trim().length < 3) {
@@ -1429,6 +1436,7 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({ open, onClose, data
         title: title.trim(),
         summary,
         severity,
+        platforms,
         version: data.version,
       });
       toast.success('Case updated');
@@ -1491,6 +1499,33 @@ const EditDetailsModal: React.FC<EditDetailsModalProps> = ({ open, onClose, data
               </option>
             ))}
           </Select>
+        </Field>
+        <Field
+          label="Platforms"
+          hint="Where this case spans — tag the platforms involved (click to toggle)."
+        >
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Case platforms">
+            {Object.entries(PLATFORM_LABELS)
+              .filter(([key]) => key !== 'twitter') // 'x' is the canonical key; 'twitter' is its legacy alias
+              .map(([key, label]) => {
+                const active = platforms.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => togglePlatform(key)}
+                    className={
+                      active
+                        ? 'rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-100'
+                        : 'rounded-full border border-line bg-white px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-brand-200 hover:text-ink-700'
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+          </div>
         </Field>
       </div>
     </Modal>
@@ -1974,6 +2009,11 @@ export const CaseDetailPage: React.FC = () => {
             <span className="rounded-md border border-line bg-bg px-2 py-1 font-mono text-[12.5px] font-bold text-ink-700">
               {data.case_number}
             </span>
+            {(data.platforms || []).map((p) => (
+              <Badge key={p} tone="info">
+                {PLATFORM_LABELS[p] || p}
+              </Badge>
+            ))}
             {titleEditing ? (
               <span className="flex items-center gap-2">
                 <Input

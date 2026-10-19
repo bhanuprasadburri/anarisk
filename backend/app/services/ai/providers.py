@@ -23,6 +23,14 @@ class BaseProvider:
     def complete_json(self, system: str, user: str, *, max_tokens: int | None = None) -> dict:
         raise NotImplementedError
 
+    def complete_image_json(self, system: str, user: str, image_b64: str, mime: str,
+                            *, max_tokens: int | None = None) -> dict:
+        """Structured JSON completion with ONE attached image (multimodal).
+
+        The default refuses honestly rather than pretending the image was seen.
+        """
+        raise AIProviderError(f"provider '{self.name}' does not support image input")
+
 
 class MemoryProvider(BaseProvider):
     """Test/dev provider: performs NO model inference and invents nothing.
@@ -57,6 +65,17 @@ class MemoryProvider(BaseProvider):
             "provider": "memory",
         }
 
+    def complete_image_json(self, system: str, user: str, image_b64: str, mime: str,
+                            *, max_tokens: int | None = None) -> dict:
+        """Deterministic receipt of an image payload: no inference, invents nothing."""
+        return {
+            "findings": [],
+            "observations": [f"{mime} image payload of {len(image_b64)} base64 characters received."],
+            "limitations": ["No model inference was performed (memory provider) — the image content was NOT interpreted."],
+            "model": "memory-retrieval-only",
+            "provider": "memory",
+        }
+
 
 class OpenAICompatibleProvider(BaseProvider):
     name = "openai-compatible"
@@ -74,6 +93,46 @@ class OpenAICompatibleProvider(BaseProvider):
                     "messages": [
                         {"role": "system", "content": system},
                         {"role": "user", "content": user},
+                    ],
+                    "temperature": 0.1,
+                    "response_format": {"type": "json_object"},
+                    "max_tokens": max_tokens or s.ai_max_tokens,
+                },
+                timeout=s.ai_timeout_seconds,
+            )
+        except httpx.TimeoutException as exc:
+            raise AIProviderError(f"AI provider timed out after {s.ai_timeout_seconds}s") from exc
+        except httpx.HTTPError as exc:
+            raise AIProviderError(f"AI provider request failed: {type(exc).__name__}") from exc
+        if resp.status_code in (401, 403):
+            raise AIProviderError("AI provider rejected the credentials (check AI_API_KEY)")
+        if resp.status_code == 429:
+            raise AIProviderError("AI provider rate limit or quota exceeded")
+        if resp.status_code >= 400:
+            raise AIProviderError(f"AI provider returned HTTP {resp.status_code}: {resp.text[:300]}")
+        try:
+            content = resp.json()["choices"][0]["message"]["content"]
+            return json.loads(content)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+            raise AIProviderError(f"AI provider returned an unusable response ({type(exc).__name__})") from exc
+
+    def complete_image_json(self, system: str, user: str, image_b64: str, mime: str,
+                            *, max_tokens: int | None = None) -> dict:
+        s = get_settings()
+        if not s.ai_api_key or not s.ai_model:
+            raise AIProviderError("AI provider is not configured (AI_API_KEY / AI_MODEL missing)")
+        try:
+            resp = httpx.post(
+                f"{s.ai_base_url.rstrip('/')}/chat/completions",
+                headers={"Authorization": f"Bearer {s.ai_api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": s.ai_model,
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": [
+                            {"type": "text", "text": user},
+                            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{image_b64}"}},
+                        ]},
                     ],
                     "temperature": 0.1,
                     "response_format": {"type": "json_object"},

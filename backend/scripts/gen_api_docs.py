@@ -1,7 +1,8 @@
-"""Generate docs/API.md from the live OpenAPI spec (run with the API server up).
+"""Generate docs/API.md from the current FastAPI OpenAPI schema.
 
 The output path is derived from this file's location so the script works regardless of
-where the repo is checked out, and the API root is configurable via NIMBUS_API_ROOT.
+where the repo is checked out. By default the schema is loaded in-process (no running API or
+database required); set NIMBUS_SPEC_URL to explicitly use a live server schema.
 """
 import collections
 import json
@@ -16,7 +17,12 @@ SPEC_URL = os.environ.get(
     "NIMBUS_SPEC_URL", API_ROOT.rsplit("/api/v1", 1)[0] + "/openapi.json"
 )
 
-spec = json.load(urllib.request.urlopen(SPEC_URL))
+if os.environ.get("NIMBUS_SPEC_URL"):
+    spec = json.load(urllib.request.urlopen(SPEC_URL))
+else:
+    from app.main import app
+
+    spec = app.openapi()
 groups: dict[str, list[tuple[str, str, str]]] = collections.OrderedDict()
 total = 0
 for path, ops in sorted(spec["paths"].items()):
@@ -30,7 +36,7 @@ for path, ops in sorted(spec["paths"].items()):
 lines = [
     "# AnaRisk — API Reference",
     "",
-    "Generated from the live OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).",
+    "Generated from the current FastAPI OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).",
     f"Base URL: `{API_ROOT}` — **{total} endpoints** across {len(groups)} tags.",
     "",
     "Authentication: `Authorization: Bearer <JWT>` (obtain via `POST /auth/login`).",

@@ -50,6 +50,14 @@ export const settingsService = {
     });
   },
 
+  /** Create a workspace (administrator only). `slug` is required by the API. */
+  async createOrganization(payload: { name: string; slug: string; description?: string }): Promise<Organization> {
+    return apiRequest<Organization>('/organizations', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   /* ---- Roles catalog ---- */
   async listRoles(): Promise<Array<{ role: string; permissions: string[] }>> {
     return apiRequest<Array<{ role: string; permissions: string[] }>>(`/users/roles`);

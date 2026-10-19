@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Briefcase, CheckCircle2, CircleDashed, ExternalLink, HelpCircle, Link2, Mail,
+  Briefcase, CheckCircle2, CircleDashed, ExternalLink, HelpCircle, Link2, Mail, Image as ImageIcon,
   RefreshCw, Search, ShieldAlert, Users, XCircle,
 } from 'lucide-react';
 import { PageHeader } from '../components/ui/page-header';
@@ -15,6 +15,7 @@ import { TableSkeleton } from '../components/ui/misc';
 import { useToast } from '../components/ui/toast';
 import { ApiError } from '../services/apiClient';
 import { toolService, type ToolAnalysisListResponse } from '../services/toolService';
+import { apiDocsUrl } from '../lib/constants';
 import { formatDate, formatRelativeTime } from '../lib/formatters';
 import { cn } from '../lib/utils';
 import { FindingStatus, ToolAnalysis, ToolFinding, ToolKey } from '../types';
@@ -27,11 +28,12 @@ const STATUS_META: Record<FindingStatus, { label: string; tone: BadgeTone; icon:
   info: { label: 'Info', tone: 'info', icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
 };
 
-const TOOL_META: Record<ToolKey, { label: string; icon: React.ReactNode }> = {
+const TOOL_META: Record<ToolKey | 'image', { label: string; icon: React.ReactNode }> = {
   email: { label: 'Email / Phishing', icon: <Mail className="h-4 w-4" /> },
   job_offer: { label: 'Job Offer', icon: <Briefcase className="h-4 w-4" /> },
   social_profile: { label: 'Social Profile', icon: <Users className="h-4 w-4" /> },
   url: { label: 'URL Scanner', icon: <Link2 className="h-4 w-4" /> },
+  image: { label: 'Image Review', icon: <ImageIcon className="h-4 w-4" /> },
 };
 
 const errMessage = (err: unknown): string =>
@@ -132,8 +134,60 @@ const AnalysisResult: React.FC<{ analysis: ToolAnalysis }> = ({ analysis }) => (
 
 /* ---------------- input forms (one per tool) ---------------- */
 
-const EmailForm: React.FC<{ onSubmit: (input: Record<string, unknown>) => Promise<void>; busy: boolean }> = ({
+/** Shared "attach an image" row for the Email/Job/Social forms (independent image analysis). */
+const ImageAnalyzeField: React.FC<{
+  context: 'email' | 'job_offer' | 'social_profile';
+  onAnalyze?: (file: File) => Promise<void>;
+  busy: boolean;
+}> = ({ context, onAnalyze, busy }) => {
+  const [file, setFile] = useState<File | null>(null);
+  if (!onAnalyze) return null;
+  return (
+    <div className="rounded-xl border border-dashed border-line bg-bg/50 p-3.5">
+      <p className="text-[12.5px] font-bold text-ink">Image check</p>
+      <p className="mt-0.5 text-[12px] leading-relaxed text-muted">
+        Attach a screenshot or logo: the file is validated by content (not extension), compared against your
+        official brand images and — when an AI provider is configured — its content is reviewed. Without one we
+        say so instead of guessing.
+      </p>
+      <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
+        <input
+          type="file"
+          accept="image/*"
+          aria-label={`Attach an image for the ${context.replace('_', ' ')} analysis`}
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="block w-full max-w-xs text-[12px] text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-brand-700 hover:file:bg-brand-100"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          icon={<ImageIcon className="h-4 w-4" />}
+          disabled={!file || busy}
+          loading={busy && !!file}
+          onClick={() => {
+            if (file) void onAnalyze(file);
+          }}
+        >
+          Analyze image
+        </Button>
+      </div>
+      {file && (
+        <p className="mt-1.5 text-[11.5px] text-faint">
+          {file.name} · {Math.max(1, Math.round(file.size / 1024))} KB
+        </p>
+      )}
+    </div>
+  );
+};
+
+const EmailForm: React.FC<{
+  onSubmit: (input: Record<string, unknown>) => Promise<void>;
+  onImage?: (file: File) => Promise<void>;
+  busy: boolean;
+}> = ({
   onSubmit,
+  onImage,
   busy,
 }) => {
   const [raw, setRaw] = useState('');
@@ -184,12 +238,18 @@ const EmailForm: React.FC<{ onSubmit: (input: Record<string, unknown>) => Promis
       <p className="text-[12px] text-muted">
         Submit at least a raw email or a from-address. Nothing here is sent anywhere except this platform's analyzer.
       </p>
+      <ImageAnalyzeField context="email" onAnalyze={onImage} busy={busy} />
     </form>
   );
 };
 
-const JobForm: React.FC<{ onSubmit: (input: Record<string, unknown>) => Promise<void>; busy: boolean }> = ({
+const JobForm: React.FC<{
+  onSubmit: (input: Record<string, unknown>) => Promise<void>;
+  onImage?: (file: File) => Promise<void>;
+  busy: boolean;
+}> = ({
   onSubmit,
+  onImage,
   busy,
 }) => {
   const [text, setText] = useState('');
@@ -244,12 +304,18 @@ const JobForm: React.FC<{ onSubmit: (input: Record<string, unknown>) => Promise<
       <Button type="submit" loading={busy} disabled={busy}>
         Check job offer
       </Button>
+      <ImageAnalyzeField context="job_offer" onAnalyze={onImage} busy={busy} />
     </form>
   );
 };
 
-const SocialForm: React.FC<{ onSubmit: (input: Record<string, unknown>) => Promise<void>; busy: boolean }> = ({
+const SocialForm: React.FC<{
+  onSubmit: (input: Record<string, unknown>) => Promise<void>;
+  onImage?: (file: File) => Promise<void>;
+  busy: boolean;
+}> = ({
   onSubmit,
+  onImage,
   busy,
 }) => {
   const [platform, setPlatform] = useState('');
@@ -292,6 +358,7 @@ const SocialForm: React.FC<{ onSubmit: (input: Record<string, unknown>) => Promi
       <Button type="submit" loading={busy} disabled={busy}>
         Verify profile
       </Button>
+      <ImageAnalyzeField context="social_profile" onAnalyze={onImage} busy={busy} />
     </form>
   );
 };
@@ -336,6 +403,25 @@ export const InvestigatePage: React.FC = () => {
     queryKey: ['tool-analyses'],
     queryFn: () => toolService.listAnalyses({ page: 1, page_size: 20 }),
   });
+
+  const runImageAnalysis = useCallback(
+    async (context: 'email' | 'job_offer' | 'social_profile', file: File) => {
+      setBusy(true);
+      setFormError(null);
+      setResult(null);
+      try {
+        const analysis = await toolService.analyzeImage(file, context);
+        setResult(analysis);
+        toast.success('Image analysis complete');
+        history.refetch();
+      } catch (err) {
+        setFormError(errMessage(err));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [toast, history],
+  );
 
   const runAnalysis = useCallback(
     async (input: Record<string, unknown>) => {
@@ -403,9 +489,19 @@ export const InvestigatePage: React.FC = () => {
                 }}
               />
               <div className="pt-5">
-                {tab === 'email' && <EmailForm onSubmit={runAnalysis} busy={busy} />}
-                {tab === 'job_offer' && <JobForm onSubmit={runAnalysis} busy={busy} />}
-                {tab === 'social_profile' && <SocialForm onSubmit={runAnalysis} busy={busy} />}
+                {tab === 'email' && (
+                  <EmailForm onSubmit={runAnalysis} onImage={(file) => runImageAnalysis('email', file)} busy={busy} />
+                )}
+                {tab === 'job_offer' && (
+                  <JobForm onSubmit={runAnalysis} onImage={(file) => runImageAnalysis('job_offer', file)} busy={busy} />
+                )}
+                {tab === 'social_profile' && (
+                  <SocialForm
+                    onSubmit={runAnalysis}
+                    onImage={(file) => runImageAnalysis('social_profile', file)}
+                    busy={busy}
+                  />
+                )}
                 {tab === 'url' && <UrlForm onSubmit={runAnalysis} busy={busy} />}
               </div>
             </CardContent>
@@ -452,7 +548,8 @@ export const InvestigatePage: React.FC = () => {
                           try {
                             const full = await toolService.getAnalysis(a.id);
                             setResult(full);
-                            setTab(full.tool);
+                            // 'image' has no form tab — open the saved result without changing the active tab
+                            if (full.tool !== 'image') setTab(full.tool);
                             setFormError(null);
                           } catch (err) {
                             toast.error('Could not open analysis', errMessage(err));
@@ -503,7 +600,7 @@ export const InvestigatePage: React.FC = () => {
                 </li>
               </ul>
               <a
-                href="/docs"
+                href={apiDocsUrl()}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-brand-600 hover:text-brand-700"

@@ -36,3 +36,16 @@ class MarkReadRequest(BaseModel):
 class MarkReadResponse(BaseModel):
     updated: int
     unread_count: int
+
+
+class BroadcastRequest(BaseModel):
+    """Administrator announcement. Persisted as one in-app notification per active user —
+    never sent by email and never reported delivered unless the rows were actually stored."""
+
+    title: str = Field(min_length=1, max_length=255)
+    message: str = Field(min_length=1, max_length=4000)
+
+
+class BroadcastResponse(BaseModel):
+    recipients: int
+    created: int

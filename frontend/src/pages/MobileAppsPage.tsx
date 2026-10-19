@@ -210,6 +210,7 @@ export const MobileAppsPage: React.FC = () => {
   const listArgs = useMemo(
     () => ({
       q: q || undefined,
+      store: store || undefined,
       risk_severity: severity || undefined,
       monitoring_status: status || undefined,
       page,
@@ -217,7 +218,7 @@ export const MobileAppsPage: React.FC = () => {
       sort: sort || undefined,
       order,
     }),
-    [q, severity, status, page, pageSize, sort, order]
+    [q, store, severity, status, page, pageSize, sort, order]
   );
 
   const appsQuery = useQuery({
@@ -236,14 +237,8 @@ export const MobileAppsPage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['mobile-apps-summary'] });
   };
 
-  /**
-   * The monitoring API has no `store` filter (q/risk_severity/monitoring_status only),
-   * so the store selector narrows the rows of the current page — stated in the UI.
-   */
-  const rows = useMemo(
-    () => (appsQuery.data?.items || []).filter((t) => !store || t.store === store),
-    [appsQuery.data, store]
-  );
+  /** Rows come pre-filtered by the API (q / store / risk_severity / monitoring_status). */
+  const rows = appsQuery.data?.items || [];
 
   const hasFilters = !!(q || severity || status || store);
   const loading = !appsQuery.data && (appsQuery.isPending || appsQuery.isFetching);
@@ -705,12 +700,6 @@ export const MobileAppsPage: React.FC = () => {
             )}
           </div>
         </div>
-        {store && (
-          <p className="border-t border-line-soft px-4 py-2.5 text-[12px] text-muted">
-            <span className="font-semibold text-ink-700">Store filter</span> narrows the current page only — the
-            monitoring API has no server-side store filter.
-          </p>
-        )}
       </Card>
 
       {/* Table */}

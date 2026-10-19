@@ -3,7 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Globe, Network, BrainCircuit, Briefcase, Smartphone, FileSearch,
   BarChart3, Settings, Shield, Menu, X, Search, Bell, ChevronDown, LogOut, User as UserIcon,
-  Building2, Users, Plug, Palette, SlidersHorizontal, Activity, SearchCheck, Sparkles, Radar,
+  Building2, Users, SlidersHorizontal, Activity, SearchCheck, Sparkles, Radar, MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../lib/utils';
@@ -16,40 +16,32 @@ interface NavItem {
   to: string;
   label: string;
   icon: React.ReactNode;
+  /** Minimum permission required to see this item (mirrors the backend matrix). */
+  perm?: string;
 }
 
 export const NAV_SECTIONS: Array<{ title?: string; items: NavItem[] }> = [
   {
     items: [
-      { to: '/dashboard', label: 'Overview', icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
-      { to: '/assets', label: 'Digital Assets', icon: <Globe className="h-[18px] w-[18px]" /> },
-      { to: '/threat-intelligence', label: 'Threat Intelligence', icon: <BrainCircuit className="h-[18px] w-[18px]" /> },
-      { to: '/investigate', label: 'Investigate', icon: <SearchCheck className="h-[18px] w-[18px]" /> },
-      { to: '/assistant', label: 'AI Assistant', icon: <Sparkles className="h-[18px] w-[18px]" /> },
+      { to: '/dashboard', label: 'Overview', icon: <LayoutDashboard className="h-[18px] w-[18px]" />, perm: 'dashboard:read' },
+      { to: '/assets', label: 'Digital Assets', icon: <Globe className="h-[18px] w-[18px]" />, perm: 'entity:read' },
+      { to: '/threat-intelligence', label: 'Threat Intelligence', icon: <BrainCircuit className="h-[18px] w-[18px]" />, perm: 'entity:read' },
+      { to: '/investigate', label: 'Investigate', icon: <SearchCheck className="h-[18px] w-[18px]" />, perm: 'entity:read' },
+      { to: '/assistant', label: 'AI Assistant', icon: <Sparkles className="h-[18px] w-[18px]" />, perm: 'entity:read' },
       { to: '/alerts', label: 'Alerts', icon: <Radar className="h-[18px] w-[18px]" /> },
-      { to: '/risk-graph', label: 'Risk Graph', icon: <Network className="h-[18px] w-[18px]" /> },
-      { to: '/cases', label: 'Investigations', icon: <Briefcase className="h-[18px] w-[18px]" /> },
-      { to: '/mobile-apps', label: 'Mobile Apps', icon: <Smartphone className="h-[18px] w-[18px]" /> },
-      { to: '/evidence', label: 'Evidence Center', icon: <FileSearch className="h-[18px] w-[18px]" /> },
-      { to: '/reports', label: 'Reports', icon: <BarChart3 className="h-[18px] w-[18px]" /> },
+      { to: '/risk-graph', label: 'Risk Graph', icon: <Network className="h-[18px] w-[18px]" />, perm: 'graph:read' },
+      { to: '/cases', label: 'Investigations', icon: <Briefcase className="h-[18px] w-[18px]" />, perm: 'case:read' },
+      { to: '/mobile-apps', label: 'Mobile Apps', icon: <Smartphone className="h-[18px] w-[18px]" />, perm: 'entity:read' },
+      { to: '/evidence', label: 'Evidence Center', icon: <FileSearch className="h-[18px] w-[18px]" />, perm: 'evidence:read' },
+      { to: '/reports', label: 'Reports', icon: <BarChart3 className="h-[18px] w-[18px]" />, perm: 'dashboard:read' },
       { to: '/settings', label: 'Settings', icon: <Settings className="h-[18px] w-[18px]" /> },
     ],
   },
 ];
 
-export const SETTINGS_NAV: NavItem[] = [
-  { to: '/settings?tab=profile', label: 'Profile', icon: <UserIcon className="h-4 w-4" /> },
-  { to: '/settings?tab=workspace', label: 'Workspace', icon: <Building2 className="h-4 w-4" /> },
-  { to: '/settings?tab=team', label: 'Team & Permissions', icon: <Users className="h-4 w-4" /> },
-  { to: '/settings?tab=brands', label: 'Brand References', icon: <Palette className="h-4 w-4" /> },
-  { to: '/settings?tab=integrations', label: 'Integrations', icon: <Plug className="h-4 w-4" /> },
-  { to: '/settings?tab=monitoring', label: 'Monitoring', icon: <Activity className="h-4 w-4" /> },
-  { to: '/settings?tab=notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-  { to: '/settings?tab=security', label: 'Security', icon: <Shield className="h-4 w-4" /> },
-];
-
 const Sidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const location = useLocation();
+  const { hasPermission } = useAuth();
   const settingsActive = location.pathname.startsWith('/settings');
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -94,12 +86,14 @@ const Sidebar: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClo
                   {section.title}
                 </p>
               )}
-              {section.items.map((item) => (
-                <NavLink key={item.to} to={item.to} className={linkClass} onClick={onClose}>
-                  {item.icon}
-                  {item.label}
-                </NavLink>
-              ))}
+              {section.items
+                .filter((item) => !item.perm || hasPermission(item.perm))
+                .map((item) => (
+                  <NavLink key={item.to} to={item.to} className={linkClass} onClick={onClose}>
+                    {item.icon}
+                    {item.label}
+                  </NavLink>
+                ))}
             </React.Fragment>
           ))}
         </nav>
@@ -230,7 +224,7 @@ const GlobalSearch: React.FC = () => {
 };
 
 const Topbar: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
 
   const roleLabel = USER_ROLE_LABELS[user?.role || ''] || user?.role;
@@ -272,6 +266,11 @@ const Topbar: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
               icon: <Bell className="h-4 w-4" />,
               onClick: () => navigate('/settings?tab=notifications'),
             },
+            {
+              label: 'Send feedback',
+              icon: <MessageSquare className="h-4 w-4" />,
+              onClick: () => navigate('/settings?tab=feedback'),
+            },
             ...(user?.role === 'administrator'
               ? [
                   {
@@ -286,11 +285,15 @@ const Topbar: React.FC<{ onMenuClick: () => void }> = ({ onMenuClick }) => {
                   },
                 ]
               : []),
-            {
-              label: 'Audit trail',
-              icon: <SlidersHorizontal className="h-4 w-4" />,
-              onClick: () => navigate('/settings?tab=security'),
-            },
+            ...(hasPermission('audit:read')
+              ? [
+                  {
+                    label: 'Audit trail',
+                    icon: <SlidersHorizontal className="h-4 w-4" />,
+                    onClick: () => navigate('/settings?tab=security'),
+                  },
+                ]
+              : []),
             {
               label: 'Sign out',
               icon: <LogOut className="h-4 w-4" />,

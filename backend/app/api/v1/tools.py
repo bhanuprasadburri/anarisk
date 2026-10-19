@@ -1,9 +1,10 @@
-"""On-demand investigation tools: email/phishing, job offer, social profile, URL scanner."""
+"""On-demand investigation tools: email/phishing, job offer, social profile, URL scanner, image review."""
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import Pagination, get_current_user, require_permission
@@ -46,9 +47,28 @@ def analyze_url(body: UrlAnalysisRequest, db: Session = Depends(get_db), user: U
     return tools_svc.run_url_analysis(db, user, body.model_dump())
 
 
+@router.post("/image/analyze", response_model=ToolAnalysisOut, status_code=201, dependencies=_analyze_deps,
+             summary="Analyze an uploaded image: content-based validation, official-logo perceptual similarity, "
+                     "embedded metadata and (when configured) AI review of the content — context: email | job_offer | social_profile")
+async def analyze_image(
+    file: UploadFile = File(..., description="Image file (validated by content, not extension)"),
+    context: Literal["email", "job_offer", "social_profile"] = Form(...),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.core.config import get_settings
+
+    # Never buffer more than the configured limit + 1 marker byte; inspect_image then
+    # reports an honest 413 for anything over the limit (and 422 for non-images).
+    data = await file.read(get_settings().max_upload_bytes + 1)
+    return tools_svc.run_image_analysis(
+        db, user, data=data, filename=(file.filename or "image")[:255], context=context,
+    )
+
+
 @router.get("/analyses", response_model=ToolAnalysisListOut, summary="List your organization's past tool runs (newest first)")
 def list_analyses(
-    tool: str | None = Query(None, pattern="^(email|job_offer|social_profile|url)$"),
+    tool: str | None = Query(None, pattern="^(email|job_offer|social_profile|url|image)$"),
     pagination: Pagination = Depends(),
     db: Session = Depends(get_db),
     user: User = Depends(require_permission("entity:read")),

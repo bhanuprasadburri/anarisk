@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ReactFlow,
   Background,
@@ -387,6 +387,19 @@ export const RiskGraphPage: React.FC = () => {
   const clearFocus = useCallback(() => {
     setNeighborhood(null);
   }, []);
+
+  /* Deep link: /risk-graph?focus=<entityId> (sent from case/entity detail pages) focuses that
+     entity's neighborhood and opens its details panel. Applied once per distinct param value so
+     a manual "clear focus" isn't immediately undone by a re-run. */
+  const [searchParams] = useSearchParams();
+  const focusParam = searchParams.get('focus');
+  const appliedFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusParam || appliedFocus.current === focusParam) return;
+    appliedFocus.current = focusParam;
+    setSelectedEntityId(focusParam);
+    void focusEntity(focusParam);
+  }, [focusParam, focusEntity]);
 
   /* ---------------- Capping ---------------- */
   const cappedView = useMemo(() => {

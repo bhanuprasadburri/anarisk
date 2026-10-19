@@ -135,6 +135,18 @@ def neighbors(db: Session, actor: User, entity_id: uuid.UUID, depth: int = 1) ->
     return to_response(nx.ego_graph(g, str(entity.id), radius=depth))
 
 
+def case_graph(db: Session, actor: User, case) -> GraphResponse:
+    """Server-composed sub-graph of a case: its linked entities plus the relationships among them.
+
+    Composed on the backend (not client-side aggregation) so the response honours the same
+    brand-scope and edge-confidence rules as the full graph. Entities the caller can no longer
+    see are omitted rather than leaked.
+    """
+    g = build_graph(db, actor)
+    members = {str(ce.entity_id) for ce in case.entities} & set(g.nodes)
+    return to_response(g.subgraph(members))
+
+
 def related_entities(db: Session, actor: User, entity_id: uuid.UUID, max_depth: int = 3, min_path_confidence: float | None = None) -> list[RelatedEntity]:
     entity = get_entity_for_user(db, actor, entity_id)
     s = get_settings()

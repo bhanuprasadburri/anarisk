@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -12,12 +12,19 @@ from app.schemas.detection import AssessmentOut
 from app.schemas.entity import EntityOut
 from app.schemas.evidence import EvidenceOut
 
+# Platform keys (must stay in sync with the frontend's PLATFORM_LABELS keys)
+CasePlatform = Literal[
+    "x", "twitter", "instagram", "facebook", "tiktok", "youtube",
+    "google_play", "app_store", "linkedin", "reddit", "web", "other",
+]
+
 
 class CaseCreate(BaseModel):
     brand_id: uuid.UUID
     title: str = Field(min_length=3, max_length=300)
     summary: str | None = Field(None, max_length=10000)
     entity_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+    platforms: list[CasePlatform] = Field(default_factory=list, max_length=20, description="Platforms this case spans")
 
 
 class CaseStatusUpdate(BaseModel):
@@ -129,12 +136,14 @@ class CasePatch(BaseModel):
     title: str | None = Field(None, min_length=3, max_length=300)
     summary: str | None = Field(None, max_length=10000)
     severity: Severity | None = None
+    platforms: list[CasePlatform] | None = Field(None, max_length=20, description="Replace the case's platform tags")
     version: int | None = Field(None, ge=1, description="Optimistic concurrency: 409 if it no longer matches the stored version")
 
 
 class CaseDetail(CaseSummary):
     summary: str | None
     cluster_key: str | None
+    platforms: list[CasePlatform] = []
     risk_assessment: AssessmentOut | None
     escalated_at: datetime | None
     escalation_summary: str | None

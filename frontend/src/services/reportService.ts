@@ -6,6 +6,7 @@ export interface ReportParams {
   from?: string;
   to?: string;
   brand_id?: string;
+  provenance?: string;
 }
 
 export type ReportKind = 'threats' | 'cases' | 'entities' | 'apps' | 'evidence';

@@ -17,6 +17,7 @@ import {
   KeyRound,
   Link2,
   Lock,
+  MessageSquare,
   MoreVertical,
   Package,
   Palette,
@@ -64,6 +65,9 @@ import {
   AuditLog,
   Brand,
   BrandReference,
+  FeedbackCategory,
+  FeedbackItem,
+  FeedbackStatus,
   IntegrationProvider,
   IntegrationTestResult,
   MonitoringTarget,
@@ -75,6 +79,7 @@ import {
   UserPreferences,
 } from '../types';
 import { STORE_LABELS, USER_ROLE_LABELS } from '../lib/constants';
+import { feedbackService } from '../services/feedbackService';
 import { formatDate, formatRelativeTime } from '../lib/formatters';
 import { cn } from '../lib/utils';
 
@@ -125,23 +130,35 @@ const ROLE_TONES: Record<string, BadgeTone> = {
 /*  Page shell                                                         */
 /* ------------------------------------------------------------------ */
 
-const TAB_ITEMS: TabItem[] = [
+type SettingsTab = TabItem & {
+  /** Only administrators may see this tab (workspace administration, team management, integrations). */
+  adminOnly?: boolean;
+  /** Minimum permission required to see this tab (mirrors the backend matrix). */
+  perm?: string;
+};
+
+const TAB_ITEMS: SettingsTab[] = [
   { id: 'profile', label: 'Profile', icon: <UserIcon className="h-4 w-4" /> },
-  { id: 'workspace', label: 'Workspace', icon: <Building2 className="h-4 w-4" /> },
-  { id: 'team', label: 'Team & Permissions', icon: <Users className="h-4 w-4" /> },
-  { id: 'brands', label: 'Brand References', icon: <Palette className="h-4 w-4" /> },
-  { id: 'integrations', label: 'Integrations', icon: <Plug className="h-4 w-4" /> },
-  { id: 'monitoring', label: 'Monitoring', icon: <Activity className="h-4 w-4" /> },
+  { id: 'workspace', label: 'Workspace', icon: <Building2 className="h-4 w-4" />, adminOnly: true },
+  { id: 'team', label: 'Team & Permissions', icon: <Users className="h-4 w-4" />, adminOnly: true },
+  { id: 'brands', label: 'Brand References', icon: <Palette className="h-4 w-4" />, perm: 'brand:read' },
+  { id: 'integrations', label: 'Integrations', icon: <Plug className="h-4 w-4" />, adminOnly: true },
+  { id: 'monitoring', label: 'Monitoring', icon: <Activity className="h-4 w-4" />, perm: 'entity:read' },
   { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-  { id: 'security', label: 'Security', icon: <ShieldCheck className="h-4 w-4" /> },
+  { id: 'feedback', label: 'Feedback', icon: <MessageSquare className="h-4 w-4" /> },
+  { id: 'security', label: 'Security', icon: <ShieldCheck className="h-4 w-4" />, perm: 'audit:read' },
 ];
 
-const TAB_IDS = TAB_ITEMS.map((t) => t.id);
-
 export const SettingsPage: React.FC = () => {
+  const { hasPermission } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const raw = searchParams.get('tab') || 'profile';
-  const tab = TAB_IDS.includes(raw) ? raw : 'profile';
+  // Admin-only tabs are hidden entirely from regular users; a direct URL to a hidden tab
+  // falls back to the profile tab (the backend would refuse the data regardless).
+  const isAdmin = hasPermission('user:manage');
+  const visibleTabs = TAB_ITEMS.filter((t) => (t.adminOnly ? isAdmin : !t.perm || hasPermission(t.perm)));
+  const visibleIds = visibleTabs.map((t) => t.id);
+  const tab = visibleIds.includes(raw) ? raw : 'profile';
 
   const setTab = (id: string) => setSearchParams({ tab: id });
 
@@ -151,7 +168,7 @@ export const SettingsPage: React.FC = () => {
         title="Settings & Integrations"
         description="Your profile, workspace, brand references, connectors and security posture — all driven by the live API."
       />
-      <Tabs items={TAB_ITEMS} value={tab} onChange={setTab} className="mb-6" />
+      <Tabs items={visibleTabs} value={tab} onChange={setTab} className="mb-6" />
       {tab === 'profile' && <ProfileTab />}
       {tab === 'workspace' && <WorkspaceTab />}
       {tab === 'team' && <TeamTab />}
@@ -159,6 +176,7 @@ export const SettingsPage: React.FC = () => {
       {tab === 'integrations' && <IntegrationsTab />}
       {tab === 'monitoring' && <MonitoringTab />}
       {tab === 'notifications' && <NotificationsTab />}
+      {tab === 'feedback' && <FeedbackTab />}
       {tab === 'security' && <SecurityTab />}
     </div>
   );
@@ -384,7 +402,10 @@ const ProfileTab: React.FC = () => {
 const WorkspaceTab: React.FC = () => {
   const { user, refreshAuth } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAdmin = user?.role === 'administrator';
+  // Set after a successful create (?tab=workspace&org={id}) so the tab loads the new workspace.
+  const orgParam = searchParams.get('org');
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [orgName, setOrgName] = useState('');
@@ -393,12 +414,16 @@ const WorkspaceTab: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [brandRows, setBrandRows] = useState<Brand[]>([]);
+  const [newName, setNewName] = useState('');
+  const [newSlug, setNewSlug] = useState('');
+  const [createErr, setCreateErr] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const orgId = user?.organization_id;
+      const orgId = orgParam || user?.organization_id;
       if (orgId) {
         const detail = await settingsService.getOrganization(orgId);
         setOrg(detail);
@@ -413,7 +438,7 @@ const WorkspaceTab: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.organization_id]);
+  }, [orgParam, user?.organization_id]);
 
   useEffect(() => {
     if (isAdmin) void load();
@@ -439,6 +464,41 @@ const WorkspaceTab: React.FC = () => {
       toast.error('Could not rename the workspace', errText(e));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const slugify = (s: string) =>
+    s
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 100);
+
+  const createWorkspace = async () => {
+    const name = newName.trim();
+    const slug = (newSlug.trim() || slugify(name)).toLowerCase();
+    if (!name) {
+      setCreateErr('Workspace name cannot be empty');
+      return;
+    }
+    if (slug.length < 2 || !/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+      setCreateErr('Slug must be at least 2 characters: lowercase letters, digits and hyphens.');
+      return;
+    }
+    setCreateErr(null);
+    setCreating(true);
+    try {
+      const created = await settingsService.createOrganization({ name, slug });
+      toast.success('Workspace created', `"${created.name}" is ready.`);
+      // Navigate ONLY on success — the `org` param makes load() fetch the new workspace.
+      setSearchParams({ tab: 'workspace', org: created.id }, { replace: true });
+    } catch (e) {
+      // No navigation on failure: the typed values stay so the user can correct and retry.
+      setCreateErr(errText(e));
+      toast.error('Could not create the workspace', errText(e));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -476,8 +536,8 @@ const WorkspaceTab: React.FC = () => {
           {!org ? (
             <EmptyState
               icon={<Building2 className="h-6 w-6" />}
-              title="You don't belong to an organization yet"
-              description="An administrator can create a workspace and assign you to it."
+              title="No workspace selected"
+              description="You don't belong to an organization yet — create your first workspace below."
             />
           ) : (
             <>
@@ -514,6 +574,54 @@ const WorkspaceTab: React.FC = () => {
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plus className="h-4 w-4 text-brand-500" /> Create a workspace
+          </CardTitle>
+          <CardDescription>
+            Creates a new organization owned by administrators — assign members to it from the Team &amp; Permissions tab.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Workspace name" required htmlFor="new-org-name">
+              <Input
+                id="new-org-name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Acme Inc."
+                disabled={creating}
+              />
+            </Field>
+            <Field label="Slug" required htmlFor="new-org-slug">
+              <Input
+                id="new-org-slug"
+                value={newSlug}
+                onChange={(e) => setNewSlug(e.target.value)}
+                placeholder={slugify(newName) || 'acme-inc'}
+                disabled={creating}
+              />
+            </Field>
+          </div>
+          <p className="mt-1 text-[11.5px] text-faint">
+            The slug appears in URLs — leave it blank to derive it from the name (lowercase letters, digits, hyphens).
+          </p>
+          {createErr && <p className="mt-3 text-[12.5px] font-semibold text-danger">{createErr}</p>}
+          <div className="mt-4 flex justify-end">
+            <Button
+              loading={creating}
+              disabled={creating || !newName.trim()}
+              icon={<Plus className="h-4 w-4" />}
+              onClick={() => void createWorkspace()}
+            >
+              Create workspace
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {(!org || org.id === user?.organization_id) && (
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
@@ -546,6 +654,7 @@ const WorkspaceTab: React.FC = () => {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };
@@ -2231,7 +2340,7 @@ const DEFAULT_PREFS: UserPreferences = {
 };
 
 const NotificationsTab: React.FC = () => {
-  const { user, refreshAuth } = useAuth();
+  const { user, refreshAuth, hasPermission } = useAuth();
   const { toast } = useToast();
 
   const [draft, setDraft] = useState<UserPreferences>({ ...DEFAULT_PREFS, ...(user?.preferences || {}) });
@@ -2293,6 +2402,32 @@ const NotificationsTab: React.FC = () => {
       toast.error('Could not mark notifications read', errText(e));
     } finally {
       setMarking(false);
+    }
+  };
+
+  /* administrator broadcast: persisted as one in-app notification per active user */
+  const canBroadcast = hasPermission('org:manage');
+  const [bcTitle, setBcTitle] = useState('');
+  const [bcMessage, setBcMessage] = useState('');
+  const [bcSending, setBcSending] = useState(false);
+  const [bcStatus, setBcStatus] = useState<string | null>(null);
+
+  const sendBroadcast = async () => {
+    if (!bcTitle.trim() || !bcMessage.trim()) return;
+    setBcSending(true);
+    setBcStatus(null);
+    try {
+      const res = await notificationService.broadcast(bcTitle.trim(), bcMessage.trim());
+      setBcStatus(`Delivered: ${res.created} of ${res.recipients} active users.`);
+      toast.success('Announcement sent', `Stored for ${res.created} of ${res.recipients} active users.`);
+      setBcTitle('');
+      setBcMessage('');
+      await loadList();
+    } catch (e) {
+      setBcStatus('Not delivered — the announcement was not stored for anyone.');
+      toast.error('Broadcast failed', errText(e));
+    } finally {
+      setBcSending(false);
     }
   };
 
@@ -2382,6 +2517,279 @@ const NotificationsTab: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {canBroadcast && (
+        <Card className="h-fit lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-brand-500" /> Broadcast an announcement
+            </CardTitle>
+            <CardDescription>
+              Persists one in-app notification for every active user. Recipients see it in their
+              Alerts list — no emails are sent, and the delivery counts below are reported only
+              after the rows are actually stored.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-w-2xl space-y-4">
+              <Field label="Title" required>
+                <Input
+                  value={bcTitle}
+                  onChange={(e) => setBcTitle(e.target.value)}
+                  maxLength={255}
+                  placeholder="Scheduled maintenance"
+                />
+              </Field>
+              <Field label="Message" required hint="1-4000 characters">
+                <Textarea
+                  value={bcMessage}
+                  onChange={(e) => setBcMessage(e.target.value)}
+                  rows={4}
+                  maxLength={4000}
+                  placeholder="The platform will be read-only on Sunday from 02:00 UTC."
+                />
+              </Field>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  loading={bcSending}
+                  disabled={!bcTitle.trim() || !bcMessage.trim()}
+                  onClick={() => void sendBroadcast()}
+                >
+                  Send to all users
+                </Button>
+                {bcStatus && <p className="text-[12.5px] font-medium text-muted">{bcStatus}</p>}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/*  Feedback: user submissions + administrator review                  */
+/* ------------------------------------------------------------------ */
+
+const FEEDBACK_CATEGORIES: Array<{ value: FeedbackCategory; label: string }> = [
+  { value: 'bug', label: 'Bug report' },
+  { value: 'feature', label: 'Feature request' },
+  { value: 'content', label: 'Content / data issue' },
+  { value: 'other', label: 'Other' },
+];
+
+const FeedbackTab: React.FC = () => {
+  const { toast } = useToast();
+  const { hasPermission, brands, activeBrand } = useAuth();
+  const canReview = hasPermission('org:manage');
+
+  /* submission */
+  const [category, setCategory] = useState<FeedbackCategory>('bug');
+  const [message, setMessage] = useState('');
+  const [pageRef, setPageRef] = useState('');
+  const [brandId, setBrandId] = useState<string>(activeBrand?.id || '');
+  const [sending, setSending] = useState(false);
+
+  /* admin review */
+  const [statusFilter, setStatusFilter] = useState<'all' | FeedbackStatus>('all');
+  const [review, setReview] = useState<PaginatedResponse<FeedbackItem> | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewErr, setReviewErr] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const loadReview = React.useCallback(async () => {
+    setReviewLoading(true);
+    setReviewErr(null);
+    try {
+      const res = await feedbackService.list({
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        page: 1,
+        page_size: 50,
+      });
+      setReview(res);
+    } catch (e) {
+      setReviewErr(errText(e));
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (canReview) void loadReview();
+  }, [canReview, loadReview]);
+
+  const send = async () => {
+    if (!message.trim()) return;
+    setSending(true);
+    try {
+      await feedbackService.submit({
+        category,
+        message: message.trim(),
+        page_ref: pageRef.trim() || undefined,
+        brand_id: brandId || undefined,
+      });
+      toast.success('Feedback sent', 'Thanks — administrators can review it in this tab.');
+      setMessage('');
+      setPageRef('');
+      if (canReview) void loadReview();
+    } catch (e) {
+      toast.error('Could not send feedback', errText(e));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const setStatus = async (row: FeedbackItem, status: FeedbackStatus) => {
+    setUpdatingId(row.id);
+    try {
+      await feedbackService.setStatus(row.id, status);
+      toast.success(status === 'resolved' ? 'Marked resolved' : 'Reopened', row.message.slice(0, 60));
+      void loadReview();
+    } catch (e) {
+      toast.error('Could not update status', errText(e));
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-brand-500" /> Send feedback
+          </CardTitle>
+          <CardDescription>
+            Report a bug, request a feature, or flag bad content. Submissions are stored with
+            your workspace scope and reviewed by administrators.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid max-w-2xl gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Category" required>
+                <Select value={category} onChange={(e) => setCategory(e.target.value as FeedbackCategory)}>
+                  {FEEDBACK_CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Brand context (optional)">
+                <Select value={brandId} onChange={(e) => setBrandId(e.target.value)}>
+                  <option value="">No specific brand</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <Field label="Message" required hint="1-4000 characters">
+              <Textarea
+                rows={5}
+                maxLength={4000}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="What happened, and what did you expect?"
+              />
+            </Field>
+            <Field label="Page or feature (optional)" hint="e.g. /risk-graph or “Evidence Center upload”">
+              <Input
+                value={pageRef}
+                onChange={(e) => setPageRef(e.target.value)}
+                maxLength={500}
+                placeholder="/investigate"
+              />
+            </Field>
+            <div>
+              <Button loading={sending} disabled={!message.trim()} onClick={() => void send()}>
+                Send feedback
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {canReview && (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-brand-500" /> All submissions
+                </CardTitle>
+                <CardDescription>
+                  Administrator triage across every workspace — global view for review only.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Select
+                  aria-label="Filter feedback by status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | FeedbackStatus)}
+                  className="w-auto"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="resolved">Resolved</option>
+                </Select>
+                <Button variant="outline" size="sm" onClick={() => void loadReview()} loading={reviewLoading}>
+                  Refresh
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {reviewLoading && !review && <p className="text-[13px] text-muted">Loading…</p>}
+            {reviewErr && <p className="text-[13px] text-danger">{reviewErr}</p>}
+            {review && review.items.length === 0 && (
+              <p className="text-[13px] text-muted">No feedback matches this filter.</p>
+            )}
+            {review && review.items.length > 0 && (
+              <ul className="divide-y divide-line-soft">
+                {review.items.map((row) => (
+                  <li key={row.id} className="flex flex-wrap items-start justify-between gap-3 py-3.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone="outline">{FEEDBACK_CATEGORIES.find((c) => c.value === row.category)?.label || row.category}</Badge>
+                        <Badge tone={row.status === 'resolved' ? 'success' : 'warning'}>
+                          {row.status === 'resolved' ? 'Resolved' : 'Open'}
+                        </Badge>
+                        <span className="text-[11.5px] font-medium text-faint">
+                          {row.user_email || 'unknown user'} · {formatRelativeTime(row.created_at)}
+                          {row.page_ref ? ` · ${row.page_ref}` : ''}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 whitespace-pre-wrap text-[13.5px] leading-relaxed text-ink-700">
+                        {row.message}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={updatingId === row.id}
+                        disabled={updatingId !== null}
+                        onClick={() => void setStatus(row, row.status === 'resolved' ? 'open' : 'resolved')}
+                      >
+                        {row.status === 'resolved' ? 'Reopen' : 'Mark resolved'}
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {review && review.pages > 1 && (
+              <p className="mt-3 text-[11.5px] text-muted">
+                Showing {review.items.length} of {review.total} (page {review.page} of {review.pages}).
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

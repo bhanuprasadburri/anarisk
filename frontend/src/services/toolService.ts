@@ -70,6 +70,14 @@ export const toolService = {
     });
   },
 
+  /** Multipart image review: content-validated upload + offline checks + optional AI review. */
+  analyzeImage(file: File, context: 'email' | 'job_offer' | 'social_profile'): Promise<ToolAnalysis> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('context', context);
+    return apiRequest<ToolAnalysis>('/tools/image/analyze', { method: 'POST', body: form });
+  },
+
   listAnalyses(params: { page?: number; page_size?: number; tool?: string } = {}): Promise<ToolAnalysisListResponse> {
     return apiRequest<ToolAnalysisListResponse>(`/tools/analyses${qs(params)}`);
   },

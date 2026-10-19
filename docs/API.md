@@ -1,7 +1,7 @@
 # AnaRisk — API Reference
 
-Generated from the live OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).
-Base URL: `http://127.0.0.1:8000` — **107 endpoints** across 18 tags.
+Generated from the current FastAPI OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).
+Base URL: `http://127.0.0.1:8000/api/v1` — **114 endpoints** across 19 tags.
 
 Authentication: `Authorization: Bearer <JWT>` (obtain via `POST /auth/login`).
 Role checks are enforced server-side per endpoint; unauthenticated requests return 401,
@@ -29,7 +29,7 @@ missing permissions return 403.
 | POST | `/api/v1/auth/login` | Login with JSON credentials |
 | GET | `/api/v1/auth/me` | Current user (incl. preferences and organization summary) |
 | PATCH | `/api/v1/auth/me` | Update your own profile (full name, email, preferences) |
-| POST | `/api/v1/auth/register` | Self-register (brand_owner role, no organization until an administrator assigns one). Creates the account UNVERIFIED and emails a 6-digit OTP (uniform response whether or not the address already exists — no account enumeration). dev_otp only outside production with no email provider configured. |
+| POST | `/api/v1/auth/register` | Self-register (brand_owner role). Individual signups receive a personal organization with the brand 'Self'; pass organization_name for an organization signup. Creates the account UNVERIFIED and emails a 6-digit OTP (uniform response whether or not the address already exists — no account enumeration). dev_otp only outside production with no email provider configured. |
 | POST | `/api/v1/auth/resend-verification` | Resend the signup OTP (or a generic notice). Uniform for unknown/verified/pending addresses (no enumeration); per-email cooldown; email_sent reports honest delivery. |
 | POST | `/api/v1/auth/reset-password` | Set a new password with a valid reset token (400 invalid_or_expired_token otherwise) |
 | POST | `/api/v1/auth/token` | OAuth2 password form (used by Swagger 'Authorize') |
@@ -47,7 +47,7 @@ missing permissions return 403.
 | POST | `/api/v1/brands/{brand_id}/references/image` | Upload an official logo/image (validated by content; hashed with pHash) |
 | DELETE | `/api/v1/brands/{brand_id}/references/{reference_id}` | Delete Reference |
 
-## Cases & Response Workflow (13)
+## Cases & Response Workflow (14)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -56,11 +56,12 @@ missing permissions return 403.
 | GET | `/api/v1/cases/workflow` | Configured workflow transitions |
 | DELETE | `/api/v1/cases/{case_id}` | Delete a case (administrators only). Notes/events/links cascade; entities and evidence are kept |
 | GET | `/api/v1/cases/{case_id}` | Case detail: evidence, signals, linked entities, notes, status history, escalations |
-| PATCH | `/api/v1/cases/{case_id}` | Edit title / summary / severity (case:triage). Send `version` for optimistic concurrency -> 409 on conflict |
+| PATCH | `/api/v1/cases/{case_id}` | Edit title / summary / severity / platforms (case:triage). Send `version` for optimistic concurrency -> 409 on conflict |
 | POST | `/api/v1/cases/{case_id}/assign` | Assign or reassign the owner (UNDER_REVIEW -> ASSIGNED automatically) |
 | GET | `/api/v1/cases/{case_id}/assignments` | Assignments |
 | POST | `/api/v1/cases/{case_id}/entities` | Link more entities to an open case |
 | POST | `/api/v1/cases/{case_id}/escalate` | Record an escalation / partner handoff (legal, marketing, platform). Does NOT contact anyone or request a takedown. |
+| GET | `/api/v1/cases/{case_id}/graph` | Case sub-graph: the case's linked entities + relationships among them (composed server-side, brand-scoped) |
 | POST | `/api/v1/cases/{case_id}/notes` | Note |
 | POST | `/api/v1/cases/{case_id}/resolve` | Resolve with an outcome and summary |
 | POST | `/api/v1/cases/{case_id}/status` | Validated status transition (use expected_status to guard against duplicate/racing requests) |
@@ -123,6 +124,14 @@ missing permissions return 403.
 | DELETE | `/api/v1/evidence/{evidence_id}/link/{case_id}` | Remove the case link (the evidence itself is kept) |
 | POST | `/api/v1/evidence/{evidence_id}/verify` | Recompute the sha256 of the stored bytes and record verified/mismatch (honest, no fabrication) |
 
+## Feedback (3)
+
+| Method | Path | Summary |
+|---|---|---|
+| GET | `/api/v1/feedback` | All feedback submissions (administrators only; filter by status/category) |
+| POST | `/api/v1/feedback` | Submit feedback (bug/feature/content/other) for your brand scope |
+| PATCH | `/api/v1/feedback/{feedback_id}` | Set a submission's status (administrators only) |
+
 ## Risk Graph (8)
 
 | Method | Path | Summary |
@@ -147,29 +156,31 @@ missing permissions return 403.
 
 | Method | Path | Summary |
 |---|---|---|
-| GET | `/api/v1/integrations` | Provider catalog merged with stored config. Secret values are never returned (secrets echo as ••••). |
-| GET | `/api/v1/integrations/{key}` | One provider + stored configuration (never secrets) |
-| POST | `/api/v1/integrations/{key}/connect` | Validate + encrypt (Fernet) the configuration and mark the provider 'configured' |
-| POST | `/api/v1/integrations/{key}/disconnect` | Remove the stored configuration (back to 'not_configured') |
-| POST | `/api/v1/integrations/{key}/sync` | Run the matching sample connector (synthetic data) for a configured provider; 400 no_connector_available otherwise |
-| POST | `/api/v1/integrations/{key}/test` | Honest connectivity test: real DNS/HTTP checks where possible; credential providers report 'unverified' rather than fake success |
+| GET | `/api/v1/integrations` | Provider catalog merged with stored config (admin only). Secret values are never returned (secrets echo as ••••). |
+| GET | `/api/v1/integrations/{key}` | One provider + stored configuration, admin only (never secrets) |
+| POST | `/api/v1/integrations/{key}/connect` | Validate + encrypt (Fernet) the configuration and mark the provider 'configured' (admin only) |
+| POST | `/api/v1/integrations/{key}/disconnect` | Remove the stored configuration (back to 'not_configured', admin only) |
+| POST | `/api/v1/integrations/{key}/sync` | Run the matching sample connector (synthetic data) for a configured provider; 400 no_connector_available otherwise (admin only) |
+| POST | `/api/v1/integrations/{key}/test` | Honest connectivity test: real DNS/HTTP checks where possible; credential providers report 'unverified' rather than fake success (admin only) |
 
 ## App Monitoring (5)
 
 | Method | Path | Summary |
 |---|---|---|
-| GET | `/api/v1/monitoring/apps` | Monitored apps: package, store, status + linked entity risk. Filters: q, brand_id, risk_severity, monitoring_status, sort, order |
+| GET | `/api/v1/monitoring/apps` | Monitored apps: package, store, status + linked entity risk. Filters: q, store, brand_id, risk_severity, monitoring_status, sort, order |
 | POST | `/api/v1/monitoring/apps` | Start monitoring a package. Validates the package id + store URL; 409 duplicate_monitoring_target on repeats |
 | DELETE | `/api/v1/monitoring/apps/{target_id}` | Stop monitoring this package (the linked entity is kept) |
 | PATCH | `/api/v1/monitoring/apps/{target_id}` | Pause/resume monitoring or correct the store URL |
 | POST | `/api/v1/monitoring/apps/{target_id}/sync` | Run the sample connector for this app (SYNTHETIC data - stated honestly) and re-analyze the linked entity |
 
-## Notifications (2)
+## Notifications (4)
 
 | Method | Path | Summary |
 |---|---|---|
 | GET | `/api/v1/notifications` | Your notifications (newest first) plus a top-level unread_count |
+| POST | `/api/v1/notifications/broadcast` | Administrator announcement: persists one in-app notification for every active user (delivery counts are reported honestly — rows are only counted once stored) |
 | POST | `/api/v1/notifications/read` | Mark notifications read (omit ids to mark ALL read) |
+| DELETE | `/api/v1/notifications/{notification_id}` | Delete one of your notifications (administrators may delete any user's) |
 
 ## Users & Organizations (10)
 
@@ -193,13 +204,14 @@ missing permissions return 403.
 | GET | `/api/v1/reports/export/csv` | CSV export: report=threats\|cases\|entities\|apps\|evidence (attachment download) |
 | GET | `/api/v1/reports/overview` | Aggregate risk/case/evidence overview for a date range (empty DB returns zeros) |
 
-## Investigation Tools (6)
+## Investigation Tools (7)
 
 | Method | Path | Summary |
 |---|---|---|
 | GET | `/api/v1/tools/analyses` | List your organization's past tool runs (newest first) |
 | GET | `/api/v1/tools/analyses/{analysis_id}` | Fetch one stored analysis |
 | POST | `/api/v1/tools/email/analyze` | Analyze a pasted email or uploaded .eml for phishing signals (sender, SPF/DMARC, links, language, attachments metadata) |
+| POST | `/api/v1/tools/image/analyze` | Analyze an uploaded image: content-based validation, official-logo perceptual similarity, embedded metadata and (when configured) AI review of the content — context: email \| job_offer \| social_profile |
 | POST | `/api/v1/tools/job/analyze` | Assess a job offer / recruiter (employer identity, email-domain mismatch, fee requests, application link) |
 | POST | `/api/v1/tools/social/analyze` | Assess a social profile against official brand references (handles, names, linked domains). Provider-verified identity is only claimed when a real platform connector is configured. |
 | POST | `/api/v1/tools/url/analyze` | Scan a URL: canonicalisation, DNS (public-only), TLS certificate, SPF/DMARC, lookalike domain, offline heuristics; live fetch only when URL_FETCH_ENABLED=true |
