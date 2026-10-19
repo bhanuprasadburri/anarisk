@@ -187,10 +187,10 @@ def test_smtp_signup_sends_otp_and_blocks_login_until_verified(smtp_settings, mo
     app_log_text = "\n".join(rec.getMessage() for rec in caplog.records if rec.name.startswith("app."))
     assert otp not in app_log_text
     assert APP_PASSWORD not in caplog.text
-    # the account is pending and login stays closed
+    # the account is pending and login stays closed (uniform rejection)
     denied = f.client.post("/api/v1/auth/login", json={"email": "smtp-chain@example.com", "password": PASSWORD})
-    assert denied.status_code == 403
-    assert denied.json()["error"]["code"] == "email_not_verified"
+    assert denied.status_code == 401
+    assert denied.json()["error"]["code"] == "invalid_credentials"
     log_row = db.scalar(select(EmailDeliveryLog).where(EmailDeliveryLog.template == "email_otp"))
     assert log_row is not None and log_row.status == "sent" and log_row.error is None
     # verify with the code that arrived in the email, then login succeeds
@@ -219,10 +219,10 @@ def test_smtp_auth_failure_is_reported_never_claimed(smtp_settings, monkeypatch,
     assert log_row.error and "SMTP send failed" in log_row.error
     assert APP_PASSWORD not in log_row.error, "secrets must never be persisted"
     assert APP_PASSWORD not in caplog.text, "secrets must never be logged"
-    # the account is still pending: login stays blocked
+    # the account is still pending: login stays blocked (uniform rejection)
     denied = f.client.post("/api/v1/auth/login", json={"email": "smtp-fail@example.com", "password": PASSWORD})
-    assert denied.status_code == 403
-    assert denied.json()["error"]["code"] == "email_not_verified"
+    assert denied.status_code == 401
+    assert denied.json()["error"]["code"] == "invalid_credentials"
     # resend endpoint reports the SMTP failure honestly too (and starts the cooldown)
     rr = f.client.post("/api/v1/auth/resend-verification", json={"email": "smtp-fail@example.com"})
     assert rr.status_code == 200

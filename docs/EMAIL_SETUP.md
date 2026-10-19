@@ -10,7 +10,8 @@ AnaRisk uses real transactional email for two flows:
 Key behaviours (all covered by the test suite):
 
 - Accounts created through public signup are **not activated until the OTP is confirmed** —
-  login is rejected with `403 email_not_verified` (only after the password checked out).
+  login is rejected with the uniform `401 invalid_credentials`, byte-identical to an unknown
+  address (the sign-in screen never reveals whether an account exists).
 - **No account enumeration**: register, verify, resend, login and password-reset responses are
   uniform whether an address is unknown, pending, or already verified. Wrong code, expired
   code, locked-out code and unknown addresses all return the same generic 400.

@@ -51,9 +51,9 @@ def test_register_dev_mode_no_provider_is_honest_and_unverified(f, db):
     # delivery was honestly recorded as skipped, not sent
     log = db.scalar(select(EmailDeliveryLog).where(EmailDeliveryLog.template == "email_otp"))
     assert log is not None and log.status == "skipped"
-    # login is blocked until the OTP is confirmed
+    # login is blocked until the OTP is confirmed (uniform invalid-credentials rejection)
     denied = f.client.post("/api/v1/auth/login", json={"email": "newbie@example.com", "password": PASSWORD})
-    assert denied.status_code == 403 and denied.json()["error"]["code"] == "email_not_verified"
+    assert denied.status_code == 401 and denied.json()["error"]["code"] == "invalid_credentials"
 
 
 def test_register_with_memory_provider_sends_real_otp_email(f, db, settings):
@@ -286,8 +286,8 @@ def test_resend_delivery_failure_is_reported_not_claimed(f, settings, monkeypatc
 def test_login_blocked_until_otp_verified_then_allowed(f):
     _register(f, "gate@example.com", name="Gate Ed")
     denied = f.client.post("/api/v1/auth/login", json={"email": "gate@example.com", "password": PASSWORD})
-    assert denied.status_code == 403
-    assert denied.json()["error"]["code"] == "email_not_verified"
+    assert denied.status_code == 401
+    assert denied.json()["error"]["code"] == "invalid_credentials"
     # wrong password still fails generically (no verification hint without credentials)
     badpw = f.client.post("/api/v1/auth/login", json={"email": "gate@example.com", "password": "Wrong-Passw0rd!"})
     assert badpw.status_code == 401 and badpw.json()["error"]["code"] == "invalid_credentials"

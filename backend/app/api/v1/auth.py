@@ -24,10 +24,11 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 def _authenticate_safely(db: Session, email: str, password: str) -> tuple[str, int]:
     """Run the login check, converting unexpected failures into the uniform generic 500.
 
-    DomainError subclasses (401 invalid credentials, 403 email_not_verified, …) pass through
-    untouched. Anything else — a database outage, a broken JWT signer — is logged HERE with the
-    full server-side traceback (never the password) and returned to the client as the same
-    anonymous ``internal_error`` body the global handler produces.
+    DomainError subclasses (401 invalid credentials — uniform for unknown email, wrong password,
+    inactive and unverified accounts — …) pass through untouched. Anything else — a database
+    outage, a broken JWT signer — is logged HERE with the full server-side traceback (never the
+    password) and returned to the client as the same anonymous ``internal_error`` body the global
+    handler produces.
     """
     try:
         return users_svc.authenticate(db, email, password)

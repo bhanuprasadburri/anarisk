@@ -119,8 +119,9 @@ Then, with the frontend deployed:
 2. Register a new account → you get `email_sent: true` and the OTP arrives
    (with `ENVIRONMENT=production` the response never contains `dev_otp`).
 3. Verify the email with the 6-digit code, then log in → **HTTP 200 with a token**.
-4. Wrong password → HTTP 401 `invalid_credentials`; unverified email → HTTP 403
-   `email_not_verified`. Neither is a 500.
+4. Wrong password **and** unverified email → HTTP 401 `invalid_credentials` (uniform — the
+   login screen never reveals whether an account exists; unverified users sign up again to
+   get a fresh code). Neither is a 500.
 5. In Render's logs you should see `database probe ok (migration revision 0005)` —
    and **no** `DATABASE PROBE FAILED` / `MIGRATIONS NOT APPLIED` lines.
 

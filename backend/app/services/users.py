@@ -54,15 +54,12 @@ def authenticate(db: Session, email: str, password: str) -> tuple[str, int]:
         log.warning("login rejected: account inactive (user_id=%s)", user.id)
         raise UnauthorizedError(INVALID_LOGIN, code="invalid_credentials")
     if user.email_verified_at is None:
-        # Only reached AFTER the password checked out, so this never confirms an account to
-        # someone who does not already know the credentials. Accounts created through public
-        # signup are not activated until their email OTP is confirmed.
+        # Uniform rejection — byte-identical to the unknown-email / wrong-password responses, so
+        # the login screen never reveals that an account exists but is unverified (no enumeration).
+        # The user activates the account through the SIGNUP flow: registering again with the same
+        # address re-issues a fresh OTP, and only then does login succeed.
         log.info("login blocked: email not verified (user_id=%s)", user.id)
-        raise ForbiddenError(
-            "Your email address has not been verified yet. Enter the 6-digit code we sent you, "
-            "or request a new one from the sign-in page.",
-            code="email_not_verified",
-        )
+        raise UnauthorizedError(INVALID_LOGIN, code="invalid_credentials")
     user.last_login_at = datetime.now(UTC)
     audit.record(db, user, "auth.login", "user", user.id)
     db.commit()

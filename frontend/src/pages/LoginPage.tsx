@@ -180,16 +180,14 @@ export const LoginPage: React.FC = () => {
         return;
       }
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'email_not_verified') {
-        setError('Your email address has not been verified yet. Enter the 6-digit code we sent you, or request a new one.');
-        setRegistered({ email: email.trim(), devOtp: null, emailSent: false });
-      } else {
-        const msg =
-          err instanceof ApiError
-            ? err.message
-            : 'Could not sign in. Check your connection and try again.';
-        setError(msg);
-      }
+      // Login failures are uniform: unknown email, wrong password, inactive and UNVERIFIED
+      // accounts all show the same error — the sign-in form never jumps to the verification
+      // panel. Unverified users are directed (below) to complete signup instead.
+      const msg =
+        err instanceof ApiError
+          ? err.message
+          : 'Could not sign in. Check your connection and try again.';
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -249,6 +247,24 @@ export const LoginPage: React.FC = () => {
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
               <p className="text-[13px] font-medium leading-snug text-danger-600">{error}</p>
             </div>
+          )}
+
+          {error && mode === 'signin' && (
+            <p className="mt-2.5 text-[12px] leading-relaxed text-muted">
+              No account yet?{' '}
+              <button
+                type="button"
+                className="font-semibold text-brand-600 hover:underline"
+                onClick={() => {
+                  setMode('signup');
+                  setError(null);
+                  setFieldErrors({});
+                }}
+              >
+                Create your account
+              </button>{' '}
+              — sign up, verify your email with the 6-digit code we send you, then sign in here.
+            </p>
           )}
 
           {registered ? (

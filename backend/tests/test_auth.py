@@ -185,12 +185,14 @@ def test_login_token_creation_failure_is_generic_500(client, f, monkeypatch, cap
 
 
 def test_login_domain_errors_pass_through_unaffected(client, f, db):
-    """The safety net must not swallow domain outcomes: 401 indistinguishability and the
-    403 email_not_verified gate keep their exact codes/messages."""
+    """The safety net must not swallow domain outcomes: login failures stay a uniform
+    401 invalid_credentials — an unverified account is byte-identical to an unknown email."""
     u = f.user(UserRole.INVESTIGATOR, f.org())
     u.email_verified_at = None
     db.commit()
     r = client.post("/api/v1/auth/login", json={"email": u.email, "password": PASSWORD})
-    assert r.status_code == 403 and r.json()["error"]["code"] == "email_not_verified"
+    unknown = client.post("/api/v1/auth/login", json={"email": "no-such-user@example.com", "password": PASSWORD})
+    assert r.status_code == unknown.status_code == 401
+    assert r.json() == unknown.json(), "unverified accounts must be indistinguishable from unknown ones"
     bad = client.post("/api/v1/auth/login", json={"email": u.email, "password": "Wrong-Passw0rd!"})
     assert bad.status_code == 401 and bad.json()["error"]["code"] == "invalid_credentials"
