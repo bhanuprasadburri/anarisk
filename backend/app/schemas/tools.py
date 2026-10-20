@@ -62,6 +62,7 @@ class SocialAnalysisRequest(BaseModel):
 
 class UrlAnalysisRequest(BaseModel):
     url: str = Field(min_length=4, max_length=2048)
+    share_with_phishtank: bool = False
 
 
 class FindingOut(BaseModel):

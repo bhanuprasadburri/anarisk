@@ -63,7 +63,7 @@ export const toolService = {
     });
   },
 
-  analyzeUrl(input: { url: string }): Promise<ToolAnalysis> {
+  analyzeUrl(input: { url: string; share_with_phishtank?: boolean }): Promise<ToolAnalysis> {
     return apiRequest<ToolAnalysis>('/tools/url/analyze', {
       method: 'POST',
       body: JSON.stringify(input),

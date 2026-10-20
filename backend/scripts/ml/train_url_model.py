@@ -16,48 +16,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from app.services.url_model_features import FEATURE_NAMES, FEATURE_VERSION, features, group_key
 from scripts.ml.url_dataset import SOURCE, SOURCE_URL
 
 SEED = 20261020
-FEATURE_VERSION = "url-lexical-v1"
-
-
-FEATURE_NAMES = ("url_length", "host_length", "path_length", "query_length", "subdomain_count", "label_count",
-                 "has_ip_host", "has_punycode", "https", "at_count", "hyphen_count", "digit_ratio",
-                 "dot_count", "encoded_count", "suspicious_token_count")
-
-
-def features(url: str) -> tuple[float, ...]:
-    p = urlsplit(url)
-    host = p.hostname or ""
-    labels = [x for x in host.split(".") if x]
-    text = f"{host}{p.path}?{p.query}"
-    lowered = text.lower()
-    return (
-        min(len(url), 5000) / 5000,
-        min(len(host), 253) / 253,
-        min(len(p.path), 2000) / 2000,
-        min(len(p.query), 2000) / 2000,
-        min(max(0, len(labels) - 2), 10) / 10,
-        min(len(labels), 15) / 15,
-        float(all(c.isdigit() or c == "." for c in host) and bool(host)),
-        float("xn--" in host),
-        float(p.scheme == "https"),
-        min(url.count("@"), 5) / 5,
-        min(host.count("-"), 20) / 20,
-        sum(c.isdigit() for c in host) / max(1, len(host)),
-        min(host.count("."), 10) / 10,
-        min(lowered.count("%"), 20) / 20,
-        min(sum(lowered.count(t) for t in ("login", "verify", "secure", "account", "update", "password", "signin")), 10) / 10,
-    )
-
-
-def group_key(url: str) -> str:
-    return (urlsplit(url).hostname or "").lower().rstrip(".")
-
-
 def grouped_split(rows: list[dict], seed: int = SEED) -> dict[str, list[dict]]:
-    """Assign whole hosts to a deterministic approximate 70/15/15 split."""
+    """Assign whole registrable domains to a deterministic train/validation split."""
     groups: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
         key = group_key(row["url"])
@@ -93,10 +57,37 @@ def run(train_path: Path, test_path: Path, artifact_path: Path, report_path: Pat
     except ImportError as exc:
         raise RuntimeError("Install backend/requirements-ml.txt before training") from exc
 
+    def load_manifest(path: Path, expected_split: str) -> dict:
+        manifest_path = path.with_suffix(path.suffix + ".manifest.json")
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"Missing or invalid dataset manifest: {manifest_path}") from exc
+        if manifest.get("source") != SOURCE or manifest.get("source_split") != expected_split:
+            raise ValueError(f"Manifest {manifest_path} does not match the expected source split")
+        if not manifest.get("source_revision") or not manifest.get("input_sha256") or not manifest.get("output_sha256"):
+            raise ValueError(f"Manifest {manifest_path} lacks revision/checksum provenance")
+        return manifest
+
+    train_manifest = load_manifest(train_path, "train")
+    test_manifest = load_manifest(test_path, "test")
+    if train_manifest["source_revision"] != test_manifest["source_revision"]:
+        raise ValueError("Train and test manifests must reference the same pinned dataset revision")
+
     def load_rows(path: Path) -> list[dict]:
         with path.open("r", encoding="utf-8", newline="") as f:
             return [{"url": r["url"], "label": int(r["label"]), "date": r.get("date", "")} for r in csv.DictReader(f)
                     if r.get("url") and r.get("label") in {"0", "1"}]
+    def verify_prepared_checksum(path: Path, manifest: dict) -> None:
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        if digest.hexdigest() != manifest["output_sha256"]:
+            raise ValueError(f"Prepared dataset checksum mismatch: {path}")
+
+    verify_prepared_checksum(train_path, train_manifest)
+    verify_prepared_checksum(test_path, test_manifest)
     rows = load_rows(train_path)
     test_rows = load_rows(test_path)
     if len(rows) < 100 or len(test_rows) < 100:
@@ -147,15 +138,18 @@ def run(train_path: Path, test_path: Path, artifact_path: Path, report_path: Pat
     report = {
         "model_name": "anarisk-url-phishing-baseline", "model_version": "0.1.0-research",
         "trained_at_utc": datetime.now(UTC).isoformat(), "seed": SEED, "dataset_source": SOURCE,
-        "dataset_source_url": SOURCE_URL, "train_manifest": train_path.with_suffix(train_path.suffix + ".manifest.json").name,
-        "official_test_manifest": test_path.with_suffix(test_path.suffix + ".manifest.json").name,
-        "feature_schema": FEATURE_VERSION, "selected_candidate_by_validation_pr_auc": chosen,
-        "candidate_validation_results": selection, "split": {k: {"rows": len(v), "label_counts": dict(Counter(str(x) for x in y[k])), "unique_hosts": len(host_overlaps[k])} for k, v in split.items()},
+        "dataset_source_url": SOURCE_URL, "dataset_revision": train_manifest["source_revision"],
+        "train_manifest": train_manifest, "official_test_manifest": test_manifest,
+        "feature_schema": FEATURE_VERSION, "feature_names": list(FEATURE_NAMES),
+        "selected_candidate_by_validation_pr_auc": chosen,
+        "candidate_validation_results": selection, "split": {k: {"rows": len(v), "label_counts": dict(Counter(str(x) for x in y[k])), "unique_registrable_domains": len(host_overlaps[k])} for k, v in split.items()},
         "test_metrics": {"precision": float(precision_score(y["test"], pred, zero_division=0)), "recall": float(recall_score(y["test"], pred, zero_division=0)),
                          "f1": float(f1_score(y["test"], pred, zero_division=0)), "pr_auc": float(average_precision_score(y["test"], test_scores)),
                          "roc_auc": float(roc_auc_score(y["test"], test_scores)), "confusion_matrix_labels_0_1": cm,
                          "false_positives": cm[0][1], "false_negatives": cm[1][0]},
         "threshold_selected_on_validation": threshold, "date_range": [min(dates), max(dates)] if dates else None,
+        "temporal_test_separation": (max(r["date"] for r in rows if r["date"]) < min(r["date"] for r in test_rows if r["date"]))
+                                     if any(r["date"] for r in rows) and any(r["date"] for r in test_rows) else None,
         "calibration": "not calibrated; model scores are not probabilities of real-world harm",
         "scope": "URL lexical features only; no webpage content, live feed, domain age or DNS features",
         "intended_use": "offline anti-phishing research; not production-ready and not integrated with AnaRisk risk scoring",

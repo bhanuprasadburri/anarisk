@@ -14,18 +14,18 @@ def test_url_features_are_fixed_width_and_finite():
     values = features("https://login-example.test/verify?account=2")
     assert len(values) == 15
     assert all(0 <= x <= 1 for x in values)
-    assert group_key("https://Sub.Example.test/login") == "sub.example.test"
+    assert group_key("https://Sub.Example.test/login") == "example.test"
 
 
 def test_grouped_split_has_no_hostname_leakage_and_is_deterministic():
     rows = []
     for n in range(80):
         label = n % 2
-        rows.append({"url": f"https://host-{n}.example.test/{label}", "label": label})
-        rows.append({"url": f"https://host-{n}.example.test/second-{label}", "label": label})
+        rows.append({"url": f"https://host-{n}.example-{n}.test/{label}", "label": label})
+        rows.append({"url": f"https://host-{n}.example-{n}.test/second-{label}", "label": label})
     a = grouped_split(rows, seed=17)
     b = grouped_split(rows, seed=17)
     assert a == b
-    hosts = {k: {group_key(row["url"]) for row in val} for k, val in a.items()}
-    assert hosts["train"].isdisjoint(hosts["validation"])
+    domains = {k: {group_key(row["url"]) for row in val} for k, val in a.items()}
+    assert domains["train"].isdisjoint(domains["validation"])
     assert len(a["train"]) + len(a["validation"]) == len(rows)

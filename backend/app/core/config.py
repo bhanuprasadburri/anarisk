@@ -170,6 +170,11 @@ class Settings(BaseSettings):
     url_fetch_allowed_ports: list[int] = [80, 443]
     url_fetch_domain_allowlist: list[str] = []  # if non-empty, only these registrable domains may be fetched
 
+    # Optional local URL-model shadow evaluation. It never contributes to risk scoring.
+    url_model_shadow_enabled: bool = False
+    url_model_artifact_path: str = "./var/models/url-phishing.joblib"
+    phishtank_app_key: str = ""
+
     @field_validator("database_url", "test_database_url", mode="before")
     @classmethod
     def _normalize_database_urls(cls, v):

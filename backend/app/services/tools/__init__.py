@@ -118,7 +118,19 @@ def run_social_analysis(db: Session, user: User, payload: dict[str, Any]) -> Too
 def run_url_analysis(db: Session, user: User, payload: dict[str, Any]) -> ToolAnalysis:
     ctx = load_official_context(db, user)
     subject, findings = analyze_url(payload, ctx.domains)
-    row = _persist(db, user, "url", subject, payload, findings)
+    saved_payload = dict(payload)
+    from app.core.config import get_settings
+    settings = get_settings()
+    if payload.get("share_with_phishtank") is True:
+        from app.services.phishtank import lookup
+
+        saved_payload["phishtank_intel"] = lookup(payload.get("url", ""), settings.phishtank_app_key)
+    if settings.url_model_shadow_enabled:
+        from app.services.url_model import predict_url
+
+        # Metadata is deliberately outside findings, so it cannot affect scoring.
+        saved_payload["url_model_shadow"] = predict_url(payload.get("url", ""), settings.url_model_artifact_path)
+    row = _persist(db, user, "url", subject, saved_payload, findings)
     return row
 
 

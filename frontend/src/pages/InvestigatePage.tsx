@@ -112,6 +112,14 @@ const AnalysisResult: React.FC<{ analysis: ToolAnalysis }> = ({ analysis }) => (
           Risk reflects how concerning the signals are; confidence reflects how well the evidence supports the
           conclusion. They are independent — a high-risk score with low confidence means verify before acting.
         </p>
+        {Boolean(analysis.input_summary?.phishtank_intel) && (() => {
+          const intel = analysis.input_summary?.phishtank_intel as { status?: string; checked_at?: string; phish_id?: string };
+          return <p className="mt-3 text-[12px] text-muted">PhishTank lookup: <strong>{intel.status || 'unknown'}</strong>{intel.phish_id ? ` (ID ${intel.phish_id})` : ''}{intel.checked_at ? ` · ${intel.checked_at}` : ''}. This result is separate from the risk score.</p>;
+        })()}
+        {Boolean(analysis.input_summary?.url_model_shadow) && (() => {
+          const model = analysis.input_summary?.url_model_shadow as { status?: string; model_version?: string; score?: number };
+          return <p className="mt-1 text-[12px] text-muted">Local URL model shadow: <strong>{model.status || 'unknown'}</strong>{model.model_version ? ` · ${model.model_version}` : ''}{typeof model.score === 'number' ? ` · uncalibrated score ${model.score.toFixed(3)}` : ''}. Not used in the risk score.</p>;
+        })()}
       </CardContent>
     </Card>
 
@@ -368,23 +376,28 @@ const UrlForm: React.FC<{ onSubmit: (input: Record<string, unknown>) => Promise<
   busy,
 }) => {
   const [url, setUrl] = useState('');
+  const [shareWithPhishTank, setShareWithPhishTank] = useState(false);
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (url.trim()) onSubmit({ url: url.trim() });
+        if (url.trim()) onSubmit({ url: url.trim(), share_with_phishtank: shareWithPhishTank });
       }}
       className="space-y-4"
     >
       <Field label="URL to scan" hint="Scheme required — http:// or https://">
         <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://suspicious-example.com/login" />
       </Field>
+      <label className="flex items-start gap-2 text-sm text-muted">
+        <input type="checkbox" checked={shareWithPhishTank} onChange={(e) => setShareWithPhishTank(e.target.checked)} />
+        <span>Check this URL with PhishTank. The URL will be sent to PhishTank for lookup.</span>
+      </label>
       <Button type="submit" loading={busy} disabled={busy}>
         Scan URL
       </Button>
       <p className="text-[12px] text-muted">
-        Scanning fetches public metadata only (DNS, redirects, certificate and content signals). It never executes
-        page scripts or downloads files.
+        AnaRisk runs passive checks and does not load the page. The optional PhishTank lookup shares the URL only
+        when selected above; its result is separate from the AnaRisk risk score.
       </p>
     </form>
   );

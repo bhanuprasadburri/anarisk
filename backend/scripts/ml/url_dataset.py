@@ -15,37 +15,13 @@ import sys
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
+from app.services.url_model_features import normalize_url
 
 SOURCE = "phreshphish/phreshphish"
 LICENSE = "CC-BY-4.0; anti-phishing research use per dataset card"
 SOURCE_URL = "https://huggingface.co/datasets/phreshphish/phreshphish"
 LABELS = {"phish": 1, "benign": 0}
 MAX_URL_CHARS = 25_000
-
-
-def normalize_url(raw: str) -> str:
-    """Canonicalize safe URL text only; never resolve, request, or execute it."""
-    value = (raw or "").strip()
-    if not value or len(value) > MAX_URL_CHARS or any(ord(c) < 32 for c in value):
-        return ""
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", value):
-        value = "https://" + value
-    try:
-        p = urlsplit(value)
-        if p.scheme.lower() not in {"http", "https"} or not p.hostname:
-            return ""
-        # Do not retain credentials or fragments. Preserve path/query because they can be
-        # discriminative and may contain sensitive tokens; the output is research-only.
-        host = p.hostname.encode("idna").decode("ascii").lower().rstrip(".")
-        if not host or len(host) > 253:
-            return ""
-        port = p.port
-        netloc = host + (f":{port}" if port and port not in (80, 443) else "")
-        path = p.path or "/"
-        return urlunsplit((p.scheme.lower(), netloc, path, p.query, ""))
-    except (ValueError, UnicodeError):
-        return ""
 
 
 def _rows(path: Path):
@@ -71,6 +47,8 @@ def _rows(path: Path):
 def prepare(input_path: Path, output_path: Path, source_split: str, source_revision: str, retrieved_at: str | None) -> dict:
     if not input_path.is_file():
         raise FileNotFoundError(input_path)
+    if input_path.resolve() == output_path.resolve():
+        raise ValueError("Input and output must be different files")
     if not re.fullmatch(r"[0-9a-fA-F]{40}", source_revision):
         raise ValueError("Provide the pinned 40-character Hugging Face dataset commit SHA")
     output_path.parent.mkdir(parents=True, exist_ok=True)

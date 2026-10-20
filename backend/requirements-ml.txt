@@ -1,4 +1,4 @@
 # Optional offline model research dependencies; not installed by the Render API image.
-scikit-learn==1.7.2
-joblib==1.5.2
-pyarrow==21.0.0
+scikit-learn==1.9.1
+joblib==1.6.0
+pyarrow==26.0.0
