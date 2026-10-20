@@ -1,3 +1,4 @@
+# Python build / test artefacts
 __pycache__/
 *.pyc
 .env
@@ -8,3 +9,8 @@ uploads/*
 .pytest_cache/
 _pytest_out.txt
 *.egg-info/
+
+# Offline phishing research inputs, derived indicators, model artifacts and reports.
+var/datasets/
+var/models/
+var/reports/

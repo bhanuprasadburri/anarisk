@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "datasets": [
+    {
+      "id": "phreshphish",
+      "source": "phreshphish/phreshphish",
+      "url": "https://huggingface.co/datasets/phreshphish/phreshphish",
+      "purpose": "offline phishing webpage/URL research; this pipeline uses URL lexical features only",
+      "license": "CC-BY-4.0",
+      "additional_scope": "Dataset card says anti-phishing research use only",
+      "attribution": "Thomas Dalton et al., PhreshPhish: A Real-World, High-Quality, Large-Scale Phishing Website Dataset and Benchmark, 2025, https://arxiv.org/abs/2507.10854",
+      "required_version_pin": "Hugging Face repository commit SHA (40 hex characters), recorded per prepared split manifest",
+      "label_field": "label",
+      "label_mapping": {"benign": 0, "phish": 1},
+      "input_fields_used": ["url", "label", "date"],
+      "input_fields_ignored": ["html", "target", "lang", "lang_score", "sha256"],
+      "notes": [
+        "Historical research data, not a live feed.",
+        "The full published dataset is 36.6 GB; inspect capacity and select exact shards before downloading.",
+        "Never fetch, resolve, render, or execute any URL or HTML row.",
+        "Do not commit source rows, prepared indicators, or model artifacts."
+      ]
+    }
+  ]
+}
