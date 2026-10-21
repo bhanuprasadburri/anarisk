@@ -1,0 +1,138 @@
+{
+  "model_name": "AnaRisk malicious URL character TF-IDF baseline",
+  "model_version": "anarisk-url-char-tfidf-0.1.0-research-95967436",
+  "trained_at_utc": "2026-10-21T14:19:56.478649+00:00",
+  "dataset_file": "phishing_url_pair.cleaned.csv",
+  "dataset_sha256": "9596743609b7017625733b1e77429768830729c3f5880fc2756c3d8f959d71a7",
+  "dataset_rows": 11416,
+  "label_definitions": {
+    "0": "legitimate",
+    "1": "phishing"
+  },
+  "source_categories_preserved": true,
+  "seed": 20261021,
+  "feature_schema": "char-tfidf-url-v1",
+  "features": {
+    "type": "character TF-IDF",
+    "analyzer": "char",
+    "ngram_range": [
+      3,
+      5
+    ],
+    "min_df": 2,
+    "max_features": 300000,
+    "sublinear_tf": true
+  },
+  "classifier": {
+    "type": "LogisticRegression",
+    "max_iter": 1000,
+    "class_weight": "balanced",
+    "solver": "liblinear"
+  },
+  "dependencies": {
+    "scikit_learn": "1.9.1",
+    "joblib": "1.6.0",
+    "numpy": "2.5.4"
+  },
+  "split_method": "Deterministic SHA-256 registrable-domain group assignment: 70% train, 15% validation, 15% test by group hash; test held out until final evaluation.",
+  "split": {
+    "train": {
+      "rows": 7438,
+      "binary_label_counts": {
+        "0": 3950,
+        "1": 3488
+      },
+      "source_category_counts": {
+        "legitimate": 3950,
+        "phishing": 3488
+      },
+      "registrable_domain_groups": 4481
+    },
+    "validation": {
+      "rows": 1980,
+      "binary_label_counts": {
+        "1": 1237,
+        "0": 743
+      },
+      "source_category_counts": {
+        "phishing": 1237,
+        "legitimate": 743
+      },
+      "registrable_domain_groups": 973
+    },
+    "test": {
+      "rows": 1998,
+      "binary_label_counts": {
+        "1": 976,
+        "0": 1022
+      },
+      "source_category_counts": {
+        "phishing": 976,
+        "legitimate": 1022
+      },
+      "registrable_domain_groups": 1017
+    }
+  },
+  "threshold_selection": {
+    "method": "maximum validation recall subject to the stated validation false-positive-rate target",
+    "target_validation_false_positive_rate": 0.01,
+    "selected_threshold": 0.7686455974973337,
+    "validation_metrics_at_threshold": {
+      "precision_by_class_0_1": [
+        0.573208722741433,
+        0.9899425287356322
+      ],
+      "recall_by_class_0_1": [
+        0.990578734858681,
+        0.5569927243330639
+      ],
+      "f1": 0.7128815312984997,
+      "confusion_matrix_labels_0_1": [
+        [
+          736,
+          7
+        ],
+        [
+          548,
+          689
+        ]
+      ],
+      "false_positive_rate": 0.009421265141318977,
+      "false_negative_count": 548,
+      "average_precision": 0.9749438690695416,
+      "roc_auc": 0.9591270070101873
+    }
+  },
+  "test_metrics_at_selected_threshold": {
+    "precision_by_class_0_1": [
+      0.6923076923076923,
+      0.8350364963503649
+    ],
+    "recall_by_class_0_1": [
+      0.8894324853228963,
+      0.5860655737704918
+    ],
+    "f1": 0.6887417218543046,
+    "confusion_matrix_labels_0_1": [
+      [
+        909,
+        113
+      ],
+      [
+        404,
+        572
+      ]
+    ],
+    "false_positive_rate": 0.11056751467710371,
+    "false_negative_count": 404,
+    "average_precision": 0.8723199165928717,
+    "roc_auc": 0.8958527156652017
+  },
+  "score_is_calibrated_probability": false,
+  "limitations": [
+    "No timestamps are present, so temporal evaluation is unavailable.",
+    "Labels and license/provenance were not independently verified.",
+    "The registrable-domain helper uses a limited suffix list.",
+    "This is an offline research baseline, not a production verdict."
+  ]
+}

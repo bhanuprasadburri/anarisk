@@ -1,0 +1,7 @@
+/data/*.csv
+/models/*.joblib
+/models/*.sha256
+/reports/*predictions*
+__pycache__/
+*.py[cod]
+.pytest_cache/

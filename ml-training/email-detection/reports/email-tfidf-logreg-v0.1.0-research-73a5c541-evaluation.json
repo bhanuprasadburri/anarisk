@@ -1,0 +1,154 @@
+{
+  "model_name": "AnaRisk email text TF-IDF Logistic Regression research baseline",
+  "model_version": "anarisk-email-tfidf-logreg-0.1.0-research-73a5c541",
+  "trained_at_utc": "2026-10-21T15:30:39.589845+00:00",
+  "dataset_file": "phishing_email.csv",
+  "dataset_sha256": "73a5c5410baf46ed69517fedfd37910f2e93777dc504b73ea483bc16be3a69d1",
+  "dataset_prepared_sha256": "62bf4e11d0557e9052ce22fd0b7974b143313fa3f9fa2ced2f5c4a9f90ae0e60",
+  "dataset_rows": 82077,
+  "dataset_quality": {
+    "input_sha256": "73a5c5410baf46ed69517fedfd37910f2e93777dc504b73ea483bc16be3a69d1",
+    "prepared_rows": 82077,
+    "prepared_sha256": "62bf4e11d0557e9052ce22fd0b7974b143313fa3f9fa2ced2f5c4a9f90ae0e60",
+    "prepared_label_counts": {
+      "0": 39233,
+      "1": 42844
+    },
+    "source_label_counts_before_cleaning": {
+      "0": 39595,
+      "1": 42891
+    },
+    "missing_text_rows": 1,
+    "missing_label_rows": 0,
+    "invalid_label_rows": 0,
+    "malformed_or_empty_after_preprocessing_rows": 0,
+    "duplicate_normalized_text_rows_removed": 408,
+    "conflicting_duplicate_text_groups_excluded": 0,
+    "truncated_rows": 3,
+    "normalization": "NFKC; email addresses, URLs and IPv4 values replaced with tokens; whitespace collapsed; first 200,000 characters retained."
+  },
+  "source": {
+    "dataset_card": "https://www.kaggle.com/datasets/naserabdullahalam/phishing-email-dataset",
+    "dataset_version_in_local_copy": null,
+    "local_copy_provenance_verified": false,
+    "reported_license": "CC BY-SA 4.0",
+    "rights_limitation": "The local copy is not pinned to a source version/checksum; constituent corpora may have separate terms. Do not redistribute the artifact until rights and privacy review is complete."
+  },
+  "label_definitions": {
+    "0": "legitimate according to the source corpus",
+    "1": "spam_or_phishing according to the source corpus"
+  },
+  "scope": "Text-only classification of the source dataset's combined spam/phishing positive class; not phishing-specific assurance.",
+  "seed": 20261021,
+  "feature_schema": "email-word-tfidf-v1",
+  "preprocessing": {
+    "unicode_normalization": "NFKC",
+    "email_address_masking": true,
+    "url_masking": true,
+    "ipv4_masking": true,
+    "max_email_characters": 200000,
+    "fit_scope": "TF-IDF vocabulary and IDF are fit on training split only"
+  },
+  "features": {
+    "type": "word TF-IDF",
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "max_df": 0.99,
+    "max_features": 120000,
+    "sublinear_tf": true,
+    "strip_accents": "unicode"
+  },
+  "classifier": {
+    "type": "LogisticRegression",
+    "max_iter": 1000,
+    "class_weight": "balanced",
+    "solver": "liblinear",
+    "random_state": 20261021
+  },
+  "dependencies": {
+    "scikit_learn": "1.9.1",
+    "joblib": "1.6.0",
+    "numpy": "2.5.4"
+  },
+  "split_method": "Deterministic SHA-256 assignment by normalized full-message hash: 70% train, 15% validation, 15% test; exact duplicate messages are deduplicated and kept in one group.",
+  "split": {
+    "train": {
+      "rows": 57363,
+      "label_counts": {
+        "0": 27474,
+        "1": 29889
+      },
+      "normalized_text_groups": 57363
+    },
+    "validation": {
+      "rows": 12298,
+      "label_counts": {
+        "0": 5839,
+        "1": 6459
+      },
+      "normalized_text_groups": 12298
+    },
+    "test": {
+      "rows": 12416,
+      "label_counts": {
+        "0": 5920,
+        "1": 6496
+      },
+      "normalized_text_groups": 12416
+    }
+  },
+  "threshold_selection": {
+    "method": "maximum validation recall subject to validation false-positive rate <= 1%",
+    "validation_fpr_target": 0.01,
+    "selected_threshold": 0.5609298952757642,
+    "validation_metrics_at_threshold": {
+      "precision": 0.9909797822706066,
+      "recall": 0.9865304226660474,
+      "f1": 0.9887500969819226,
+      "confusion_matrix_labels_0_1": [
+        [
+          5781,
+          58
+        ],
+        [
+          87,
+          6372
+        ]
+      ],
+      "false_positive_rate": 0.00993320774105155,
+      "false_negatives": 87,
+      "average_precision": 0.9992050179148463,
+      "roc_auc": 0.999151351904159
+    }
+  },
+  "test_metrics_at_selected_threshold": {
+    "precision": 0.9937849596022374,
+    "recall": 0.9846059113300493,
+    "f1": 0.9891741416640891,
+    "confusion_matrix_labels_0_1": [
+      [
+        5880,
+        40
+      ],
+      [
+        100,
+        6396
+      ]
+    ],
+    "false_positive_rate": 0.006756756756756757,
+    "false_negatives": 100,
+    "average_precision": 0.9991340132229009,
+    "roc_auc": 0.9991115894604581
+  },
+  "score_is_calibrated_probability": false,
+  "limitations": [
+    "The source combines spam and phishing examples; spam detection does not establish phishing detection.",
+    "No sender, campaign, thread, source identifier, or dedicated timestamp columns are available; related and near-duplicate messages may cross splits.",
+    "No temporal holdout is possible from structured date fields.",
+    "Labels, local provenance, constituent-source rights, and personal-data handling are not independently verified.",
+    "This offline artifact is research-only and is not integrated with AnaRisk or production decisions."
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "prepared_at_utc": "2026-10-21T13:20:12.611393+00:00",
+  "input_file": "malicious_phish.csv",
+  "input_sha256": "d83ce942075dd63ed4d11560cfdcd9d512caa3d680e292f22cab484e8f074d01",
+  "input_bytes": 45664439,
+  "source_url": "https://www.kaggle.com/datasets/sid321axn/malicious-urls-dataset",
+  "license": null,
+  "provenance_note": "Source URL and license are recorded only when explicitly supplied; a CSV alone does not establish either.",
+  "input_rows": 651191,
+  "source_category_counts": {
+    "phishing": 94111,
+    "benign": 428103,
+    "defacement": 96457,
+    "malware": 32520
+  },
+  "binary_label_definition": {
+    "0": "benign source category",
+    "1": "phishing, defacement, or malware source category"
+  },
+  "clean_rows": 640540,
+  "binary_label_counts": {
+    "1": 212698,
+    "0": 427842
+  },
+  "missing_url_rows": 0,
+  "missing_label_rows": 0,
+  "unknown_label_rows": 0,
+  "malformed_url_rows": 99,
+  "duplicate_normalized_url_rows": 10440,
+  "exact_duplicate_url_rows": 10072,
+  "conflicting_exact_url_keys": 6,
+  "conflicting_normalized_urls_excluded": 112,
+  "unique_hostnames": 196448,
+  "unique_registrable_domains_estimate": 152649,
+  "registrable_domains_by_source_category": {
+    "benign": 103609,
+    "defacement": 2085,
+    "malware": 7035,
+    "phishing": 44337
+  },
+  "registrable_domains_with_multiple_source_categories": 4319,
+  "hostnames_repeated": 45178,
+  "hostnames_with_multiple_source_categories": 2851,
+  "dates_available": false,
+  "normalization": "HTTP(S) scheme and IDNA hostname normalized; fragments and credentials removed; path and query preserved",
+  "urls_fetched": false,
+  "output_file": "malicious_phish.cleaned.csv",
+  "output_sha256": "f113c43110bf34108d09d58dbff1af148959bb717035101beda4dcbb428564a5",
+  "limitations": [
+    "Labels are source assertions and their collection/verification dates are unavailable in this CSV.",
+    "Binary malicious means any of phishing, defacement, or malware; the binary model cannot identify the category.",
+    "This report does not independently verify source provenance or license terms."
+  ]
+}

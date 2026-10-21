@@ -1,0 +1,73 @@
+{
+  "created_at_utc": "2026-10-21T17:43:13.972475+00:00",
+  "exact_conflicting_url_keys": 5,
+  "exact_duplicate_rows": 18145,
+  "group_split_domain_overlap": {
+    "train_test": 0,
+    "train_validation": 0,
+    "validation_test": 0
+  },
+  "grouping": "tldextract Public Suffix List bundled snapshot; group key hashed in prepared data and reports",
+  "input_rows": 886181,
+  "label_mapping": {
+    "0": "benign",
+    "1": "phishing"
+  },
+  "label_mapping_basis": "User-confirmed in the conversation on 2026-10-21; not defined in the dataset README/card.",
+  "license_declared_by_source_card": "CC BY-SA 4.0",
+  "license_scope_note": "This is the Hugging Face repository metadata declaration, not independent proof of upstream rights. Local research only; no dataset/model redistribution, deployment, or containerization is authorized by this experiment.",
+  "limitations": [
+    "The dataset card README is empty and does not define integer label meanings; mapping is user-confirmed.",
+    "The local file's exact source revision is not recorded or byte-verified against the hosted copy.",
+    "Historical source, timestamps, label verification process, and upstream rights are undocumented.",
+    "Normalized duplicates use the AnaRisk inference normalizer; source URL is retained only in the unchanged original file."
+  ],
+  "malformed_csv_rows": 0,
+  "malformed_or_unsupported_url_rows": 157,
+  "missing_label_rows": 0,
+  "missing_url_rows": 0,
+  "normalization_changed_rows": 886024,
+  "normalized_conflicting_url_keys": 13,
+  "normalized_duplicate_rows": 22863,
+  "prepared_bytes": 105126300,
+  "prepared_file": "prepared.csv",
+  "prepared_label_counts": {
+    "0": 608376,
+    "1": 254772
+  },
+  "prepared_rows": 863148,
+  "prepared_sha256": "1ea71ccfc303a5014e896b9c901804ee3fd193305568865c4b921c52bbd3c542",
+  "raw_url_values_in_report": false,
+  "reference_overlap": {
+    "note": "Hash intersections are counts only; reference overlap means this candidate is not an independent source-level evaluation of that dataset.",
+    "reference_file": "malicious_phish.csv",
+    "reference_rows": 651191,
+    "reference_sha256": "d83ce942075dd63ed4d11560cfdcd9d512caa3d680e292f22cab484e8f074d01",
+    "reference_source_label_counts": {
+      "benign": 428103,
+      "defacement": 96457,
+      "malware": 32520,
+      "phishing": 94111
+    },
+    "reference_valid_url_rows": 651092,
+    "shared_normalized_url_hashes": 442788,
+    "shared_registrable_domain_hashes": 123407
+  },
+  "registrable_domain_groups": 345199,
+  "registrable_domains_with_both_labels": 887,
+  "rows_excluded_for_normalized_label_conflict": 32,
+  "source_bytes": 42925918,
+  "source_file": "PhishBenignDataset.csv",
+  "source_ids_available": false,
+  "source_label_counts": {
+    "0": 610832,
+    "1": 275349
+  },
+  "source_revision": "not recorded; local copy could not be byte-verified against an immutable revision",
+  "source_sha256": "a1e3fc9df5b9068b2f28237af3fe605801165daf7d1c4cb41f10c372fb57321c",
+  "source_url_claimed": "https://huggingface.co/datasets/Mitake/PhishingURLsANDBenignURLs",
+  "timestamps_available": false,
+  "unknown_label_rows": 0,
+  "urls_fetched": false,
+  "valid_unique_normalized_urls": 863161
+}

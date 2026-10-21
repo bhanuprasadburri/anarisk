@@ -1,0 +1,144 @@
+{
+  "created_at_utc": "2026-10-21T14:51:11.617191+00:00",
+  "baseline_artifact": "url-char-tfidf-v0.1.0-research.joblib",
+  "dataset_sha256": "f113c43110bf34108d09d58dbff1af148959bb717035101beda4dcbb428564a5",
+  "split_method": "Deterministic SHA-256 registrable-domain group assignment: 70% train, 15% validation, 15% test by group hash; test held out until final evaluation.",
+  "domain_groups_disjoint": true,
+  "reproduced_saved_report": true,
+  "test_used_for_model_or_threshold_selection": false,
+  "data_quality_and_rights": {
+    "input_sha256": "d83ce942075dd63ed4d11560cfdcd9d512caa3d680e292f22cab484e8f074d01",
+    "input_rows": 651191,
+    "source_category_counts": {
+      "phishing": 94111,
+      "benign": 428103,
+      "defacement": 96457,
+      "malware": 32520
+    },
+    "clean_rows": 640540,
+    "duplicate_normalized_url_rows": 10440,
+    "conflicting_normalized_urls_excluded": 112,
+    "registrable_domains_with_multiple_source_categories": 4319,
+    "dates_available": false,
+    "source_url": "https://www.kaggle.com/datasets/sid321axn/malicious-urls-dataset",
+    "license": null
+  },
+  "rights_assessment": "The local report records no license. Public availability/source matching does not establish permission to redistribute the CSV or derived artifact.",
+  "selection_rule": "Select MultinomialNB only if validation average precision improves by at least 0.005 and validation malicious recall at the validation-selected <=1% FPR threshold is no more than 0.01 lower.",
+  "selected_thresholds": {
+    "baseline_logistic_regression": 0.8578006147478512,
+    "candidate_multinomial_nb": 0.9727396429368624
+  },
+  "validation": {
+    "baseline_logistic_regression": {
+      "precision_by_class_0_1": [
+        0.8606769267764819,
+        0.9767348253099339
+      ],
+      "recall_by_class_0_1": [
+        0.9900076066662057,
+        0.7235806297709924
+      ],
+      "f1": 0.8313120931825968,
+      "confusion_matrix_labels_0_1": [
+        [
+          57266,
+          578
+        ],
+        [
+          9270,
+          24266
+        ]
+      ],
+      "false_positive_rate": 0.009992393333794343,
+      "false_negative_count": 9270,
+      "average_precision": 0.9583109383245609,
+      "roc_auc": 0.9707536503898219
+    },
+    "candidate_multinomial_nb": {
+      "precision_by_class_0_1": [
+        0.777405210214083,
+        0.9673759665857651
+      ],
+      "recall_by_class_0_1": [
+        0.9900076066662057,
+        0.5110627385496184
+      ],
+      "f1": 0.6687998751292608,
+      "confusion_matrix_labels_0_1": [
+        [
+          57266,
+          578
+        ],
+        [
+          16397,
+          17139
+        ]
+      ],
+      "false_positive_rate": 0.009992393333794343,
+      "false_negative_count": 16397,
+      "average_precision": 0.9229521594550639,
+      "roc_auc": 0.9493455227869076
+    }
+  },
+  "held_out_test": {
+    "baseline_logistic_regression": {
+      "precision_by_class_0_1": [
+        0.8891422458688737,
+        0.9622911126106458
+      ],
+      "recall_by_class_0_1": [
+        0.9851840299438552,
+        0.7547868862666958
+      ],
+      "f1": 0.846000837520938,
+      "confusion_matrix_labels_0_1": [
+        [
+          63170,
+          950
+        ],
+        [
+          7876,
+          24243
+        ]
+      ],
+      "false_positive_rate": 0.014815970056144729,
+      "false_negative_count": 7876,
+      "average_precision": 0.9534186847673938,
+      "roc_auc": 0.9708043915059558
+    },
+    "candidate_multinomial_nb": {
+      "precision_by_class_0_1": [
+        0.7967219693264612,
+        0.9644156159068865
+      ],
+      "recall_by_class_0_1": [
+        0.9908452900810979,
+        0.4953142999470718
+      ],
+      "f1": 0.6544893551373033,
+      "confusion_matrix_labels_0_1": [
+        [
+          63533,
+          587
+        ],
+        [
+          16210,
+          15909
+        ]
+      ],
+      "false_positive_rate": 0.009154709918902059,
+      "false_negative_count": 16210,
+      "average_precision": 0.9083411574349745,
+      "roc_auc": 0.9378740728902386
+    }
+  },
+  "candidate_selected_on_validation": false,
+  "candidate_artifact": null,
+  "current_model_version": "anarisk-url-char-tfidf-0.1.0-research",
+  "notes": [
+    "The test split was evaluated once for each predeclared model and was not used to choose the candidate or threshold.",
+    "This internal test set contains no reliable timestamps and cannot establish present-day performance.",
+    "Data provenance and usage rights remain unverified; artifacts are research-only."
+  ]
+}

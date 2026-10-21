@@ -117,8 +117,8 @@ const AnalysisResult: React.FC<{ analysis: ToolAnalysis }> = ({ analysis }) => (
           return <p className="mt-3 text-[12px] text-muted">PhishTank lookup: <strong>{intel.status || 'unknown'}</strong>{intel.phish_id ? ` (ID ${intel.phish_id})` : ''}{intel.checked_at ? ` · ${intel.checked_at}` : ''}. This result is separate from the risk score.</p>;
         })()}
         {Boolean(analysis.input_summary?.url_model_shadow) && (() => {
-          const model = analysis.input_summary?.url_model_shadow as { status?: string; model_version?: string; score?: number };
-          return <p className="mt-1 text-[12px] text-muted">Local URL model shadow: <strong>{model.status || 'unknown'}</strong>{model.model_version ? ` · ${model.model_version}` : ''}{typeof model.score === 'number' ? ` · uncalibrated score ${model.score.toFixed(3)}` : ''}. Not used in the risk score.</p>;
+          const model = analysis.input_summary?.url_model_shadow as { status?: string; model_version?: string; prediction?: string; score?: number; threshold?: number };
+          return <p className="mt-1 text-[12px] text-muted">Local URL model shadow: <strong>{model.status || 'unknown'}</strong>{model.model_version ? ` · ${model.model_version}` : ''}{model.prediction ? ` · model prediction: ${model.prediction}` : ''}{typeof model.score === 'number' ? ` · uncalibrated score ${model.score.toFixed(3)}` : ''}{typeof model.threshold === 'number' ? ` · validation threshold ${model.threshold.toFixed(3)}` : ''}. A model prediction is fallible and is not a verified verdict; it does not change the risk score.</p>;
         })()}
       </CardContent>
     </Card>

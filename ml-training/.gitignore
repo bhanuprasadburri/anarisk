@@ -1,0 +1,5 @@
+# Raw and prepared threat indicators stay local and out of public Git repositories.
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep

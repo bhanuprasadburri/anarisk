@@ -1,0 +1,218 @@
+{
+  "artifact_bytes": 5115870,
+  "artifact_file": "url-char-tfidf-mitake-v0.1.0-research-1ea71ccf.joblib",
+  "artifact_sha256": "cb222a8481750df4e9fba9b22905b642aa69780d0cbb867f6bd4825da9875cfc",
+  "classifier": {
+    "class_weight": "balanced",
+    "max_iter": 1000,
+    "random_state": 20261021,
+    "solver": "liblinear",
+    "type": "logistic_regression"
+  },
+  "dataset_id": "Mitake/PhishingURLsANDBenignURLs",
+  "dataset_rows": 863148,
+  "dataset_sha256": "1ea71ccfc303a5014e896b9c901804ee3fd193305568865c4b921c52bbd3c542",
+  "dependencies": {
+    "joblib": "1.6.0",
+    "numpy": "2.5.4",
+    "python": "3.14.6",
+    "scikit_learn": "1.9.1",
+    "tldextract": "5.4.0"
+  },
+  "experiment_version": "v0.1.0-research",
+  "feature_schema": "char-tfidf-url-v1",
+  "features": {
+    "analyzer": "char",
+    "dtype": "float32",
+    "max_features": 300000,
+    "min_df": 2,
+    "ngram_range": [
+      3,
+      5
+    ],
+    "sublinear_tf": true,
+    "type": "character TF-IDF"
+  },
+  "label_definitions": {
+    "0": "benign",
+    "1": "phishing"
+  },
+  "label_mapping_basis": "User-confirmed; the source card does not document the integer semantics.",
+  "limitations": [
+    "Source card has no explanatory README; label meanings were supplied by the user.",
+    "The local CSV is not byte-verified against an immutable source revision.",
+    "Candidate data has substantial overlap with the legacy dataset; test results are not an independent source benchmark.",
+    "No timestamps, source IDs, or label verification history are present.",
+    "The dataset card declares CC BY-SA 4.0; upstream rights and model-weight share-alike treatment are not legally reviewed.",
+    "Model is private research output only; no redistribution, deployment, or staging use is authorized."
+  ],
+  "model_name": "AnaRisk URL phishing character TF-IDF research model",
+  "model_selection": {
+    "rule": "Highest validation phishing recall under validation FPR <= 1%; then validation AP; exact ties favor Logistic Regression.",
+    "selected": "logistic_regression",
+    "validation_comparison": {
+      "logistic_regression": {
+        "average_precision": 0.9750586687905842,
+        "metrics": {
+          "average_precision_pr_auc": 0.9750586687905842,
+          "balanced_accuracy": 0.9081586348839137,
+          "confusion_matrix_true_rows_0_1_predicted_columns_0_1": [
+            [
+              71057,
+              717
+            ],
+            [
+              6419,
+              30537
+            ]
+          ],
+          "f1_phishing": 0.8953819088110248,
+          "false_negative_count": 6419,
+          "false_negative_rate": 0.17369304037233466,
+          "false_positive_count": 717,
+          "false_positive_rate": 0.009989689859837824,
+          "precision_by_class_0_1": [
+            0.9171485363209252,
+            0.9770589364561336
+          ],
+          "precision_phishing": 0.9770589364561336,
+          "recall_by_class_0_1": [
+            0.9900103101401622,
+            0.8263069596276653
+          ],
+          "recall_phishing": 0.8263069596276653,
+          "roc_auc": 0.9838175232589055,
+          "specificity_benign": 0.9900103101401622,
+          "threshold": 0.7780090477833166
+        },
+        "threshold_selection": {
+          "method": "maximum validation recall subject to validation FPR <= configured target",
+          "selected_threshold": 0.7780090477833166,
+          "validation_fpr_at_selected_threshold": 0.009989689859837824,
+          "validation_fpr_target": 0.01,
+          "validation_recall_at_selected_threshold": 0.8263069596276653
+        }
+      },
+      "multinomial_nb": {
+        "average_precision": 0.9597337656993935,
+        "metrics": {
+          "average_precision_pr_auc": 0.9597337656993935,
+          "balanced_accuracy": 0.8811129589449593,
+          "confusion_matrix_true_rows_0_1_predicted_columns_0_1": [
+            [
+              71057,
+              717
+            ],
+            [
+              8418,
+              28538
+            ]
+          ],
+          "f1_phishing": 0.8620319886423706,
+          "false_negative_count": 8418,
+          "false_negative_rate": 0.22778439225024352,
+          "false_positive_count": 717,
+          "false_positive_rate": 0.009989689859837824,
+          "precision_by_class_0_1": [
+            0.8940798993394149,
+            0.9754913689967527
+          ],
+          "precision_phishing": 0.9754913689967527,
+          "recall_by_class_0_1": [
+            0.9900103101401622,
+            0.7722156077497565
+          ],
+          "recall_phishing": 0.7722156077497565,
+          "roc_auc": 0.9726679418768114,
+          "specificity_benign": 0.9900103101401622,
+          "threshold": 0.9582515792667037
+        },
+        "threshold_selection": {
+          "method": "maximum validation recall subject to validation FPR <= configured target",
+          "selected_threshold": 0.9582515792667037,
+          "validation_fpr_at_selected_threshold": 0.009989689859837824,
+          "validation_fpr_target": 0.01,
+          "validation_recall_at_selected_threshold": 0.7722156077497565
+        }
+      }
+    }
+  },
+  "model_version": "anarisk-url-phish-mitake-v0.1.0-research-1ea71ccf",
+  "peak_process_working_set_mb": 2351.72,
+  "preprocessing": "AnaRisk url_model_features.normalize_url; applied before vectorization at preparation and inference.",
+  "production_integration": false,
+  "research_only": true,
+  "seed": 20261021,
+  "source_dataset_sha256": "a1e3fc9df5b9068b2f28237af3fe605801165daf7d1c4cb41f10c372fb57321c",
+  "split": {
+    "test": {
+      "label_counts": {
+        "0": 110459,
+        "1": 39586
+      },
+      "phishing_prevalence": 0.2638275184111433,
+      "rows": 150045,
+      "unique_registrable_domains": 51837
+    },
+    "train": {
+      "label_counts": {
+        "0": 426143,
+        "1": 178230
+      },
+      "phishing_prevalence": 0.2949006656485316,
+      "rows": 604373,
+      "unique_registrable_domains": 241420
+    },
+    "validation": {
+      "label_counts": {
+        "0": 71774,
+        "1": 36956
+      },
+      "phishing_prevalence": 0.3398877954566357,
+      "rows": 108730,
+      "unique_registrable_domains": 51936
+    }
+  },
+  "split_method": "Hash registrable-domain group assignment using tldextract bundled Public Suffix List snapshot: 70/15/15 by domain hash; seed controls the assignment.",
+  "threshold_selection": {
+    "method": "maximum validation recall subject to validation FPR <= configured target",
+    "selected_threshold": 0.7780090477833166,
+    "validation_fpr_at_selected_threshold": 0.009989689859837824,
+    "validation_fpr_target": 0.01,
+    "validation_metrics": {
+      "average_precision_pr_auc": 0.9750586687905842,
+      "balanced_accuracy": 0.9081586348839137,
+      "confusion_matrix_true_rows_0_1_predicted_columns_0_1": [
+        [
+          71057,
+          717
+        ],
+        [
+          6419,
+          30537
+        ]
+      ],
+      "f1_phishing": 0.8953819088110248,
+      "false_negative_count": 6419,
+      "false_negative_rate": 0.17369304037233466,
+      "false_positive_count": 717,
+      "false_positive_rate": 0.009989689859837824,
+      "precision_by_class_0_1": [
+        0.9171485363209252,
+        0.9770589364561336
+      ],
+      "precision_phishing": 0.9770589364561336,
+      "recall_by_class_0_1": [
+        0.9900103101401622,
+        0.8263069596276653
+      ],
+      "recall_phishing": 0.8263069596276653,
+      "roc_auc": 0.9838175232589055,
+      "specificity_benign": 0.9900103101401622,
+      "threshold": 0.7780090477833166
+    },
+    "validation_recall_at_selected_threshold": 0.8263069596276653
+  },
+  "trained_at_utc": "2026-10-21T17:52:18.419233+00:00",
+  "training_duration_seconds": 268.29
+}

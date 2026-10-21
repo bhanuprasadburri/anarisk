@@ -1,0 +1,145 @@
+{
+  "model_name": "AnaRisk malicious URL character TF-IDF baseline",
+  "model_version": "anarisk-url-char-tfidf-0.1.0-research",
+  "trained_at_utc": "2026-10-21T13:37:20.648946+00:00",
+  "dataset_file": "malicious_phish.cleaned.csv",
+  "dataset_sha256": "f113c43110bf34108d09d58dbff1af148959bb717035101beda4dcbb428564a5",
+  "dataset_rows": 640540,
+  "label_definitions": {
+    "0": "benign",
+    "1": "phishing, defacement, or malware"
+  },
+  "source_categories_preserved": true,
+  "seed": 20261021,
+  "feature_schema": "char-tfidf-url-v1",
+  "features": {
+    "type": "character TF-IDF",
+    "analyzer": "char",
+    "ngram_range": [
+      3,
+      5
+    ],
+    "min_df": 2,
+    "max_features": 300000,
+    "sublinear_tf": true
+  },
+  "classifier": {
+    "type": "LogisticRegression",
+    "max_iter": 1000,
+    "class_weight": "balanced",
+    "solver": "liblinear"
+  },
+  "dependencies": {
+    "scikit_learn": "1.9.1",
+    "joblib": "1.6.0",
+    "numpy": "2.5.4"
+  },
+  "split_method": "Deterministic SHA-256 registrable-domain group assignment: 70% train, 15% validation, 15% test by group hash; test held out until final evaluation.",
+  "split": {
+    "train": {
+      "rows": 452921,
+      "binary_label_counts": {
+        "0": 305878,
+        "1": 147043
+      },
+      "source_category_counts": {
+        "benign": 305878,
+        "defacement": 65611,
+        "phishing": 65405,
+        "malware": 16027
+      },
+      "registrable_domain_groups": 106712
+    },
+    "validation": {
+      "rows": 91380,
+      "binary_label_counts": {
+        "1": 33536,
+        "0": 57844
+      },
+      "source_category_counts": {
+        "defacement": 15470,
+        "phishing": 14298,
+        "benign": 57844,
+        "malware": 3768
+      },
+      "registrable_domain_groups": 23051
+    },
+    "test": {
+      "rows": 96239,
+      "binary_label_counts": {
+        "1": 32119,
+        "0": 64120
+      },
+      "source_category_counts": {
+        "phishing": 14051,
+        "benign": 64120,
+        "defacement": 14227,
+        "malware": 3841
+      },
+      "registrable_domain_groups": 22879
+    }
+  },
+  "threshold_selection": {
+    "method": "maximum validation recall subject to the stated validation false-positive-rate target",
+    "target_validation_false_positive_rate": 0.01,
+    "selected_threshold": 0.8578006147478512,
+    "validation_metrics_at_threshold": {
+      "precision_by_class_0_1": [
+        0.8606769267764819,
+        0.9767348253099339
+      ],
+      "recall_by_class_0_1": [
+        0.9900076066662057,
+        0.7235806297709924
+      ],
+      "f1": 0.8313120931825968,
+      "confusion_matrix_labels_0_1": [
+        [
+          57266,
+          578
+        ],
+        [
+          9270,
+          24266
+        ]
+      ],
+      "false_positive_rate": 0.009992393333794343,
+      "false_negative_count": 9270,
+      "average_precision": 0.9583109383245609,
+      "roc_auc": 0.9707536503898219
+    }
+  },
+  "test_metrics_at_selected_threshold": {
+    "precision_by_class_0_1": [
+      0.8891422458688737,
+      0.9622911126106458
+    ],
+    "recall_by_class_0_1": [
+      0.9851840299438552,
+      0.7547868862666958
+    ],
+    "f1": 0.846000837520938,
+    "confusion_matrix_labels_0_1": [
+      [
+        63170,
+        950
+      ],
+      [
+        7876,
+        24243
+      ]
+    ],
+    "false_positive_rate": 0.014815970056144729,
+    "false_negative_count": 7876,
+    "average_precision": 0.9534186847673938,
+    "roc_auc": 0.9708043915059558
+  },
+  "score_is_calibrated_probability": false,
+  "limitations": [
+    "No timestamps are present, so temporal evaluation is unavailable.",
+    "Labels and license/provenance were not independently verified.",
+    "The registrable-domain helper uses a limited suffix list.",
+    "Binary prediction does not distinguish phishing, malware, and defacement.",
+    "This is an offline research baseline, not a production verdict."
+  ]
+}

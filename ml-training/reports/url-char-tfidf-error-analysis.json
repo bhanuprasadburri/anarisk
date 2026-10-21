@@ -1,0 +1,281 @@
+{
+  "test_rows": 96239,
+  "false_positive_count": 950,
+  "false_negative_count": 7876,
+  "false_positives_by_source_category": {
+    "benign": 950
+  },
+  "false_negatives_by_source_category": {
+    "defacement": {
+      "rows": 14227,
+      "false_negatives": 434,
+      "false_negative_rate": 0.03050537709988051
+    },
+    "malware": {
+      "rows": 3841,
+      "false_negatives": 619,
+      "false_negative_rate": 0.16115594897162197
+    },
+    "phishing": {
+      "rows": 14051,
+      "false_negatives": 6823,
+      "false_negative_rate": 0.48558821436196714
+    }
+  },
+  "aggregate_url_characteristics_by_true_class_and_error_status": {
+    "malicious": {
+      "error_rows": 7876,
+      "correct_rows": 24243,
+      "feature_prevalence": {
+        "has_at_sign=False": {
+          "error_count": 7843,
+          "error_rate_within_group": 0.24487948045460223,
+          "correct_count": 24185
+        },
+        "has_at_sign=True": {
+          "error_count": 33,
+          "error_rate_within_group": 0.3626373626373626,
+          "correct_count": 58
+        },
+        "has_percent_encoding=False": {
+          "error_count": 7235,
+          "error_rate_within_group": 0.23106895340295744,
+          "correct_count": 24076
+        },
+        "has_percent_encoding=True": {
+          "error_count": 641,
+          "error_rate_within_group": 0.7933168316831684,
+          "correct_count": 167
+        },
+        "has_query=False": {
+          "error_count": 6801,
+          "error_rate_within_group": 0.31380058136852307,
+          "correct_count": 14872
+        },
+        "has_query=True": {
+          "error_count": 1075,
+          "error_rate_within_group": 0.1029102048631055,
+          "correct_count": 9371
+        },
+        "host_has_digits=False": {
+          "error_count": 6579,
+          "error_rate_within_group": 0.23764629388816644,
+          "correct_count": 21105
+        },
+        "host_has_digits=True": {
+          "error_count": 1297,
+          "error_rate_within_group": 0.29244644870349495,
+          "correct_count": 3138
+        },
+        "host_has_hyphen=False": {
+          "error_count": 6481,
+          "error_rate_within_group": 0.23784359059048038,
+          "correct_count": 20768
+        },
+        "host_has_hyphen=True": {
+          "error_count": 1395,
+          "error_rate_within_group": 0.2864476386036961,
+          "correct_count": 3475
+        },
+        "ip_host=False": {
+          "error_count": 7842,
+          "error_rate_within_group": 0.2581388459132954,
+          "correct_count": 22537
+        },
+        "ip_host=True": {
+          "error_count": 34,
+          "error_rate_within_group": 0.01954022988505747,
+          "correct_count": 1706
+        },
+        "path_depth=0": {
+          "error_count": 2945,
+          "error_rate_within_group": 0.7412534608608105,
+          "correct_count": 1028
+        },
+        "path_depth=1": {
+          "error_count": 1762,
+          "error_rate_within_group": 0.13222272249737355,
+          "correct_count": 11564
+        },
+        "path_depth=2-4": {
+          "error_count": 2325,
+          "error_rate_within_group": 0.17968931138418734,
+          "correct_count": 10614
+        },
+        "path_depth=5+": {
+          "error_count": 844,
+          "error_rate_within_group": 0.44869750132908026,
+          "correct_count": 1037
+        },
+        "punycode_host=False": {
+          "error_count": 7871,
+          "error_rate_within_group": 0.24516430462544775,
+          "correct_count": 24234
+        },
+        "punycode_host=True": {
+          "error_count": 5,
+          "error_rate_within_group": 0.35714285714285715,
+          "correct_count": 9
+        },
+        "scheme_https=False": {
+          "error_count": 1226,
+          "error_rate_within_group": 0.06104665637603943,
+          "correct_count": 18857
+        },
+        "scheme_https=True": {
+          "error_count": 6650,
+          "error_rate_within_group": 0.5525091392489199,
+          "correct_count": 5386
+        },
+        "url_length=101-200": {
+          "error_count": 598,
+          "error_rate_within_group": 0.11876861966236346,
+          "correct_count": 4437
+        },
+        "url_length=51-100": {
+          "error_count": 2279,
+          "error_rate_within_group": 0.19883091956028617,
+          "correct_count": 9183
+        },
+        "url_length=<=50": {
+          "error_count": 4662,
+          "error_rate_within_group": 0.31322225208277343,
+          "correct_count": 10222
+        },
+        "url_length=>200": {
+          "error_count": 337,
+          "error_rate_within_group": 0.45663956639566394,
+          "correct_count": 401
+        }
+      }
+    },
+    "benign": {
+      "error_rows": 950,
+      "correct_rows": 63170,
+      "feature_prevalence": {
+        "has_at_sign=False": {
+          "error_count": 949,
+          "error_rate_within_group": 0.014819788868761322,
+          "correct_count": 63087
+        },
+        "has_at_sign=True": {
+          "error_count": 1,
+          "error_rate_within_group": 0.011904761904761904,
+          "correct_count": 83
+        },
+        "has_percent_encoding=False": {
+          "error_count": 752,
+          "error_rate_within_group": 0.012498545714428174,
+          "correct_count": 59415
+        },
+        "has_percent_encoding=True": {
+          "error_count": 198,
+          "error_rate_within_group": 0.05008854034910195,
+          "correct_count": 3755
+        },
+        "has_query=False": {
+          "error_count": 699,
+          "error_rate_within_group": 0.01295067995701634,
+          "correct_count": 53275
+        },
+        "has_query=True": {
+          "error_count": 251,
+          "error_rate_within_group": 0.02473881332544845,
+          "correct_count": 9895
+        },
+        "host_has_digits=False": {
+          "error_count": 893,
+          "error_rate_within_group": 0.015577302143841471,
+          "correct_count": 56434
+        },
+        "host_has_digits=True": {
+          "error_count": 57,
+          "error_rate_within_group": 0.008390990725747092,
+          "correct_count": 6736
+        },
+        "host_has_hyphen=False": {
+          "error_count": 910,
+          "error_rate_within_group": 0.015646223414315433,
+          "correct_count": 57251
+        },
+        "host_has_hyphen=True": {
+          "error_count": 40,
+          "error_rate_within_group": 0.006712535660345695,
+          "correct_count": 5919
+        },
+        "ip_host=False": {
+          "error_count": 950,
+          "error_rate_within_group": 0.014815970056144729,
+          "correct_count": 63170
+        },
+        "path_depth=0": {
+          "error_count": 156,
+          "error_rate_within_group": 0.013895074374276298,
+          "correct_count": 11071
+        },
+        "path_depth=1": {
+          "error_count": 297,
+          "error_rate_within_group": 0.023689877961234746,
+          "correct_count": 12240
+        },
+        "path_depth=2-4": {
+          "error_count": 361,
+          "error_rate_within_group": 0.009951757408683667,
+          "correct_count": 35914
+        },
+        "path_depth=5+": {
+          "error_count": 136,
+          "error_rate_within_group": 0.0333251654006371,
+          "correct_count": 3945
+        },
+        "punycode_host=False": {
+          "error_count": 948,
+          "error_rate_within_group": 0.014787776685853338,
+          "correct_count": 63159
+        },
+        "punycode_host=True": {
+          "error_count": 2,
+          "error_rate_within_group": 0.15384615384615385,
+          "correct_count": 11
+        },
+        "scheme_https=False": {
+          "error_count": 576,
+          "error_rate_within_group": 0.11365430149960537,
+          "correct_count": 4492
+        },
+        "scheme_https=True": {
+          "error_count": 374,
+          "error_rate_within_group": 0.006333401070243176,
+          "correct_count": 58678
+        },
+        "url_length=101-200": {
+          "error_count": 198,
+          "error_rate_within_group": 0.031558814153649986,
+          "correct_count": 6076
+        },
+        "url_length=51-100": {
+          "error_count": 439,
+          "error_rate_within_group": 0.015992714025500912,
+          "correct_count": 27011
+        },
+        "url_length=<=50": {
+          "error_count": 306,
+          "error_rate_within_group": 0.010886580333001281,
+          "correct_count": 27802
+        },
+        "url_length=>200": {
+          "error_count": 7,
+          "error_rate_within_group": 0.0030594405594405595,
+          "correct_count": 2281
+        }
+      }
+    }
+  },
+  "privacy": "No URL, hostname, registrable domain, or row-level identifier is included.",
+  "caveat": "These are source-label errors on a domain-held-out split; unknown label accuracy and time-based freshness cannot be inferred.",
+  "created_at_utc": "2026-10-21T14:51:22.195547+00:00",
+  "model_version": "anarisk-url-char-tfidf-0.1.0-research",
+  "dataset_sha256": "f113c43110bf34108d09d58dbff1af148959bb717035101beda4dcbb428564a5",
+  "threshold_from_validation": 0.8578006147478512,
+  "threshold_selection_method": "maximum validation recall subject to validation FPR <= 1%"
+}

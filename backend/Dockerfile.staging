@@ -1,0 +1,30 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 \
+    RUN_MIGRATIONS=false URL_FETCH_ENABLED=false \
+    URL_MODEL_ARTIFACT_PATH=/app/var/models/url-char-tfidf-v0.1.0-research.joblib
+WORKDIR /app
+
+COPY requirements.txt requirements-url-staging.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-url-staging.txt \
+    && useradd --create-home --uid 10001 appuser \
+    && mkdir -p /app/var/models /app/uploads \
+    && chown -R appuser:appuser /app
+
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic
+COPY app ./app
+COPY docker/entrypoint.sh /entrypoint.sh
+COPY docker/staging-entrypoint.sh /staging-entrypoint.sh
+COPY scripts/staging/validate_url_model.py /app/scripts/staging/validate_url_model.py
+# The controlled staging context builder inserts exactly this reviewed artifact.
+COPY staging-artifact/url-char-tfidf-v0.1.0-research.joblib /app/var/models/url-char-tfidf-v0.1.0-research.joblib
+RUN chmod 0555 /entrypoint.sh /staging-entrypoint.sh \
+    && chown root:root /app/var/models/url-char-tfidf-v0.1.0-research.joblib \
+    && chmod 0444 /app/var/models/url-char-tfidf-v0.1.0-research.joblib
+
+USER 10001
+EXPOSE 8000
+HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health').status==200 else 1)"
+ENTRYPOINT ["/staging-entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

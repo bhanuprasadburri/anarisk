@@ -1,0 +1,20 @@
+{
+  "access_date": "2026-10-21",
+  "attribution": "Mitake, PhishingURLsANDBenignURLs, https://huggingface.co/datasets/Mitake/PhishingURLsANDBenignURLs, CC BY-SA 4.0; changes: URL normalization, duplicate/conflict audit, and derived train/validation/test partitions.",
+  "dataset_id": "Mitake/PhishingURLsANDBenignURLs",
+  "dataset_url": "https://huggingface.co/datasets/Mitake/PhishingURLsANDBenignURLs",
+  "distribution_status": "not authorized by this workflow; do not redistribute dataset or derived model",
+  "intended_use": "private offline anti-phishing research only",
+  "label_mapping": {
+    "0": "benign",
+    "1": "phishing"
+  },
+  "label_mapping_basis": "User-confirmed in the conversation on 2026-10-21; not defined in the dataset README/card.",
+  "license_evidence": "https://huggingface.co/datasets/Mitake/PhishingURLsANDBenignURLs",
+  "rights_limitation": "The card declares CC BY-SA 4.0. This records the declaration only; upstream rights and whether model weights constitute a share-alike adaptation have not been independently determined.",
+  "source_card_license": "CC BY-SA 4.0",
+  "source_file": "PhishBenignDataset.csv",
+  "source_provenance_status": "unverified local copy; hosted card matches name/schema/row count/size, but immutable source revision and exact file hash were not established",
+  "source_revision": "not recorded; local copy could not be byte-verified against an immutable revision",
+  "source_sha256": "a1e3fc9df5b9068b2f28237af3fe605801165daf7d1c4cb41f10c372fb57321c"
+}

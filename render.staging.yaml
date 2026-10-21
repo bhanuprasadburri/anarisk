@@ -1,0 +1,50 @@
+# Separate manual-only staging service. Never attach production credentials here.
+# Artifact is intentionally absent from Git until derived-model rights are reviewed.
+services:
+  - type: web
+    name: anarisk-url-shadow-staging
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./backend/Dockerfile.staging
+    dockerContext: ./backend
+    autoDeployTrigger: "off"
+    healthCheckPath: /api/v1/ready
+    envVars:
+      - key: ENVIRONMENT
+        value: staging
+      - key: DEBUG
+        value: "false"
+      - key: RUN_MIGRATIONS
+        value: "false"
+      - key: URL_FETCH_ENABLED
+        value: "false"
+      - key: URL_MODEL_SHADOW_ENABLED
+        value: "true"
+      - key: URL_MODEL_ARTIFACT_PATH
+        value: /app/var/models/url-char-tfidf-v0.1.0-research.joblib
+      - key: URL_MODEL_ARTIFACT_SHA256
+        value: d4ff1b4ea161edcdeee78c6be1956b51f87ef8a23d5b59600a602d0033b4c005
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
+      - key: SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: EMAIL_PROVIDER
+        value: none
+      - key: AI_PROVIDER
+        value: none
+      - key: MONITORING_WORKER_ENABLED
+        value: "false"
+      - key: ALLOW_PUBLIC_REGISTRATION
+        value: "false"

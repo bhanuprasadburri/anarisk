@@ -1,0 +1,63 @@
+{
+  "audited_at_utc": "2026-10-21T15:31:31.789371+00:00",
+  "input_file": "phishing_email.csv",
+  "input_bytes": 106603543,
+  "input_sha256": "73a5c5410baf46ed69517fedfd37910f2e93777dc504b73ea483bc16be3a69d1",
+  "rows": 82486,
+  "columns": [
+    "text_combined",
+    "label"
+  ],
+  "candidate_text_columns": [
+    "text_combined"
+  ],
+  "selected_text_column_for_duplicate_audit": "text_combined",
+  "candidate_label_columns": [
+    "label"
+  ],
+  "selected_label_column": "label",
+  "label_counts": {
+    "0": 39595,
+    "1": 42891
+  },
+  "format_marker_presence_by_label": {
+    "0": {
+      "http": 17035,
+      "unsubscribe": 5777
+    },
+    "1": {
+      "unsubscribe": 5502,
+      "http": 21865
+    }
+  },
+  "missing_values_by_column": {
+    "text_combined": 1
+  },
+  "duplicate_full_rows_after_cell_trim": 408,
+  "duplicate_normalized_text_keys": 407,
+  "duplicate_text_keys_with_multiple_labels": 0,
+  "text_length_characters": {
+    "min": 1,
+    "median": 558.0,
+    "max": 4279526
+  },
+  "grouping_columns_available": [],
+  "nonempty_unique_values_by_grouping_column": {},
+  "label_semantics_appear_phishing_specific": false,
+  "spam_labels_only_or_ambiguous": true,
+  "published_source_candidate": "https://www.kaggle.com/datasets/naserabdullahalam/phishing-email-dataset",
+  "published_source_candidate_schema_and_counts_match": true,
+  "published_source_label_mapping": {
+    "0": "legitimate",
+    "1": "spam_or_phishing"
+  },
+  "published_source_license": "CC BY-SA 4.0 (Kaggle dataset card)",
+  "local_copy_provenance_verified": false,
+  "rights_limitation": "The matching source card reports CC BY-SA 4.0, but this local file has no version/source checksum manifest; constituent corpora may also carry separate terms.",
+  "message_contents_written_to_report": false,
+  "limitations": [
+    "Label-name screening is a heuristic; consult the source documentation before treating labels as phishing-specific.",
+    "Duplicate text hashing ignores case and whitespace but does not establish semantic equivalence.",
+    "This audit does not establish label correctness, collection time, or data usage rights."
+  ]
+}

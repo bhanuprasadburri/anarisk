@@ -1,0 +1,103 @@
+{
+  "artifact_sha256": "cb222a8481750df4e9fba9b22905b642aa69780d0cbb867f6bd4825da9875cfc",
+  "evaluation_type": "held-out domain-separated test from this dataset; not an independent source evaluation",
+  "legacy_baseline_comparison": {
+    "legacy_historical_metrics_are_incomparable": true,
+    "reason": "The legacy source overlaps this candidate, so test observations may have appeared in legacy training. Its training label also combines phishing, malware, and defacement.",
+    "shared_normalized_url_hashes": 442788,
+    "shared_registrable_domain_hashes": 123407,
+    "valid_same_test_comparison": false
+  },
+  "limitations": [
+    "Source card has no explanatory README; label meanings were supplied by the user.",
+    "The local CSV is not byte-verified against an immutable source revision.",
+    "Candidate data has substantial overlap with the legacy dataset; test results are not an independent source benchmark.",
+    "No timestamps, source IDs, or label verification history are present.",
+    "The dataset card declares CC BY-SA 4.0; upstream rights and model-weight share-alike treatment are not legally reviewed.",
+    "Model is private research output only; no redistribution, deployment, or staging use is authorized."
+  ],
+  "metrics": {
+    "average_precision_pr_auc": 0.940404807901656,
+    "balanced_accuracy": 0.8753855756741423,
+    "confusion_matrix_true_rows_0_1_predicted_columns_0_1": [
+      [
+        104058,
+        6401
+      ],
+      [
+        7572,
+        32014
+      ]
+    ],
+    "f1_phishing": 0.820861271009346,
+    "false_negative_count": 7572,
+    "false_negative_rate": 0.1912797453645228,
+    "false_positive_count": 6401,
+    "false_positive_rate": 0.057949103287192535,
+    "precision_by_class_0_1": [
+      0.932168771835528,
+      0.8333723805805024
+    ],
+    "precision_phishing": 0.8333723805805024,
+    "recall_by_class_0_1": [
+      0.9420508967128075,
+      0.8087202546354771
+    ],
+    "recall_phishing": 0.8087202546354771,
+    "roc_auc": 0.9709766745060507,
+    "specificity_benign": 0.9420508967128075,
+    "threshold": 0.7780090477833166
+  },
+  "model_version": "anarisk-url-phish-mitake-v0.1.0-research-1ea71ccf",
+  "overlap_validation": {
+    "normalized_url_hash_intersections": {
+      "train_test": 0,
+      "train_validation": 0,
+      "validation_test": 0
+    },
+    "passed": true,
+    "registrable_domain_intersections": {
+      "train_test": 0,
+      "train_validation": 0,
+      "validation_test": 0
+    }
+  },
+  "partitions": {
+    "test": {
+      "label_counts": {
+        "0": 110459,
+        "1": 39586
+      },
+      "phishing_prevalence": 0.2638275184111433,
+      "rows": 150045,
+      "unique_registrable_domains": 51837
+    },
+    "train": {
+      "label_counts": {
+        "0": 426143,
+        "1": 178230
+      },
+      "phishing_prevalence": 0.2949006656485316,
+      "rows": 604373,
+      "unique_registrable_domains": 241420
+    },
+    "validation": {
+      "label_counts": {
+        "0": 71774,
+        "1": 36956
+      },
+      "phishing_prevalence": 0.3398877954566357,
+      "rows": 108730,
+      "unique_registrable_domains": 51936
+    }
+  },
+  "performance": {
+    "artifact_bytes": 5115870,
+    "process_peak_working_set_mb": 959.2,
+    "test_batch_inference_seconds": 23.196,
+    "test_rows_per_second": 6468.58
+  },
+  "prepared_dataset_sha256": "1ea71ccfc303a5014e896b9c901804ee3fd193305568865c4b921c52bbd3c542",
+  "threshold_from_training_validation_only": 0.7780090477833166,
+  "threshold_reselected_on_test": false
+}
