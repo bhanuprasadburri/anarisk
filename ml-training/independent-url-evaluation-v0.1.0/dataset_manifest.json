@@ -1,0 +1,200 @@
+{
+  "acquisition": {
+    "LegitPhish": "Current official card inspected; describes URL plus features and has Download All control. No publisher file acquired. Official API endpoints require OAuth2; shell request was blocked by network policy; local CSV identity remains unverified.",
+    "PhiLegit-100K": "Current official card describes a CSV named PhiLegit-100K.csv (not a verified RAR); Download All control is listed. No original publisher file acquired. Official API endpoints require OAuth2; shell request was blocked by network policy; local CSV identity remains unverified.",
+    "PhishVN": "Current version-4 official card lists dataset_url.csv, vn_compphish.csv, train/validation/test splits, abuse_type.csv, attacks, docs and MANIFEST, with Download All control. No new download; the previously supplied direct ZIP URL returned HTTP 404. Documented file/ZIP APIs require OAuth2 and shell access is blocked; local ZIP origin remains unverified."
+  },
+  "candidates": {
+    "LegitPhish.local_candidate": {
+      "bytes": 8963838,
+      "local_filename": "url_features_extracted1.csv",
+      "sha256": "8685e7901c3b4e73eb43c106cb166cc932dd14f76960a032c713c2c32f09dbcd",
+      "source_identity_verified": false
+    },
+    "Mitake_existing": {
+      "bytes": 42925918,
+      "local_filename": "PhishBenignDataset.csv",
+      "sha256": "a1e3fc9df5b9068b2f28237af3fe605801165daf7d1c4cb41f10c372fb57321c",
+      "source_identity_verified": true
+    },
+    "PhiLegit-100K.local": {
+      "bytes": 116949776,
+      "local_filename": "PhiLegit-100K.csv",
+      "sha256": "66d79283ff485a157c961d3575e60009898c871d48acc74fd9ca689c43ff8ba8",
+      "source_identity_verified": false
+    },
+    "PhishVN_v3.1.0_open": {
+      "archive_member": "data/dataset_url.csv",
+      "bytes": 11263539,
+      "sha256": "8e1c6325a82177014ac892a9aaf8c4d3cbbc986b47fd1ecac8899c865fb6eade"
+    },
+    "legacy_malicious_phish": {
+      "bytes": 45664439,
+      "local_filename": "malicious_phish.csv",
+      "sha256": "d83ce942075dd63ed4d11560cfdcd9d512caa3d680e292f22cab484e8f074d01",
+      "source_identity_verified": true
+    },
+    "legacy_phishing_url_pair": {
+      "bytes": 1162093,
+      "local_filename": "phishing_url_pair.cleaned.csv",
+      "sha256": "9596743609b7017625733b1e77429768830729c3f5880fc2756c3d8f959d71a7",
+      "source_identity_verified": true
+    }
+  },
+  "data_rights": "Publisher CC BY 4.0 declarations are recorded as publisher claims; upstream source terms, intended commercial use and derived-model distribution remain subject to legal review.",
+  "phishvn_archive": {
+    "all_manifest_checks_match": true,
+    "bytes": 5813309,
+    "entry_count": 15,
+    "file": "PhishVN_v3.1.0_open.zip",
+    "manifest_checks": {
+      "CITATION.cff": {
+        "actual_sha256": "e17e519a53ab7d4a70eaa57216a02e5e33b7662c4bcc5e9226ac8e3ac1340b5a",
+        "expected_sha256": "e17e519a53ab7d4a70eaa57216a02e5e33b7662c4bcc5e9226ac8e3ac1340b5a",
+        "matches": true
+      },
+      "LICENSE": {
+        "actual_sha256": "5f0f46d6011b0d85a2e609a2a0cc08997ab761c5332a3c865c3abb702cc7b5ff",
+        "expected_sha256": "5f0f46d6011b0d85a2e609a2a0cc08997ab761c5332a3c865c3abb702cc7b5ff",
+        "matches": true
+      },
+      "data/abuse_type.csv": {
+        "actual_sha256": "3e354d6429c3bf280431a34d5265e6ae9fa3e83c68bace7f7b46a8c54878389a",
+        "expected_sha256": "3e354d6429c3bf280431a34d5265e6ae9fa3e83c68bace7f7b46a8c54878389a",
+        "matches": true
+      },
+      "data/attacks/p3_paraphrase.csv": {
+        "actual_sha256": "45f6214834e135de9ced7bb9b6dbce4be7f9af76d395c801be5e62205c443980",
+        "expected_sha256": "45f6214834e135de9ced7bb9b6dbce4be7f9af76d395c801be5e62205c443980",
+        "matches": true
+      },
+      "data/attacks/p3_paraphrase_band.csv": {
+        "actual_sha256": "5a8876ad1886ee0268a119e2807a89fd673ce4063c0a5f50c1b5e8fdd4e33343",
+        "expected_sha256": "5a8876ad1886ee0268a119e2807a89fd673ce4063c0a5f50c1b5e8fdd4e33343",
+        "matches": true
+      },
+      "data/dataset_url.csv": {
+        "actual_sha256": "8e1c6325a82177014ac892a9aaf8c4d3cbbc986b47fd1ecac8899c865fb6eade",
+        "expected_sha256": "8e1c6325a82177014ac892a9aaf8c4d3cbbc986b47fd1ecac8899c865fb6eade",
+        "matches": true
+      },
+      "data/splits/url_test.csv": {
+        "actual_sha256": "b692882e8ae26b2c0b217c090e92d3a19307a26acbfb3c8c89692db26d409bc9",
+        "expected_sha256": "b692882e8ae26b2c0b217c090e92d3a19307a26acbfb3c8c89692db26d409bc9",
+        "matches": true
+      },
+      "data/splits/url_train.csv": {
+        "actual_sha256": "568e788eda4bdf62531adcddd093373ef6a1e97feec1354063ae337325367b61",
+        "expected_sha256": "568e788eda4bdf62531adcddd093373ef6a1e97feec1354063ae337325367b61",
+        "matches": true
+      },
+      "data/splits/url_val.csv": {
+        "actual_sha256": "d9ef64d29df6639af698ef228e5af5ec6f8ae44c8f1a1dd1367f9ba6d073d81f",
+        "expected_sha256": "d9ef64d29df6639af698ef228e5af5ec6f8ae44c8f1a1dd1367f9ba6d073d81f",
+        "matches": true
+      },
+      "data/vn_compphish.csv": {
+        "actual_sha256": "ce64567f4ab955b214b13a268546a460f2dd827b18432d0971b3f5a3ef06bbbf",
+        "expected_sha256": "ce64567f4ab955b214b13a268546a460f2dd827b18432d0971b3f5a3ef06bbbf",
+        "matches": true
+      },
+      "docs/data_sources.md": {
+        "actual_sha256": "543071613eb2283ab0c8a788e3018f2391af5808b6c90d37863f42794672e165",
+        "expected_sha256": "543071613eb2283ab0c8a788e3018f2391af5808b6c90d37863f42794672e165",
+        "matches": true
+      },
+      "docs/datasheet.md": {
+        "actual_sha256": "8759e022310e42c44deefee16ec4c6443ca8189bbf85b08303499f5e55c3cfbb",
+        "expected_sha256": "8759e022310e42c44deefee16ec4c6443ca8189bbf85b08303499f5e55c3cfbb",
+        "matches": true
+      },
+      "docs/schema.md": {
+        "actual_sha256": "0feca8331ff5634e22247d072c143a530a23d064424a7fab0da64cb6deb4d5eb",
+        "expected_sha256": "0feca8331ff5634e22247d072c143a530a23d064424a7fab0da64cb6deb4d5eb",
+        "matches": true
+      }
+    },
+    "manifest_file_count": 13,
+    "sha256": "308351e9d0c0fca13a81f2f63524a7dee08ccba6c775848d125b3da5525d0ab5",
+    "uncompressed_bytes": 32015737
+  },
+  "publisher_records": {
+    "LegitPhish": {
+      "attribution": "Cite the dataset and review upstream source terms before reuse.",
+      "authors": [
+        "Rachana Potpelwar",
+        "Uday Kulkarni",
+        "Jaishri Waghmare"
+      ],
+      "download_status": "No publisher file acquired; current card has Download All; API endpoints require OAuth2; shell network blocked; local feature CSV origin unverified.",
+      "identifier": "10.17632/hx4m73v2sf.2",
+      "license_claim": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "official_page": "https://data.mendeley.com/datasets/hx4m73v2sf/2",
+      "official_title": "LegitPhish",
+      "official_version_date": "2025-05-22",
+      "access_recheck_date": "2026-10-22",
+      "official_page_file_details": "Card describes the URL field and engineered features and exposes Download All; exact downloadable filenames were not visible through the configured page reader.",
+      "retrieval_date": null,
+      "publisher": "Mendeley Data",
+      "release_version": "2",
+      "upstream_sources": [
+        "URLHaus",
+        "PhishTank",
+        "UCI",
+        "Google Search API",
+        "Wikipedia",
+        "Stack Overflow"
+      ]
+    },
+    "PhiLegit-100K": {
+      "attribution": "Dataset card attributes PhiUSIIL and LegitPhish upstream datasets; exact notice and upstream terms require official archive/README review.",
+      "authors": [
+        "Shakil Mia",
+        "Jannatul Jeor Bushra",
+        "Marufa Tasnim"
+      ],
+      "download_status": "Current card describes PhiLegit-100K.csv and Download All; no verified RAR is listed in card text. No publisher file acquired; file API requires OAuth2; shell network blocked; local CSV origin unverified.",
+      "identifier": "10.17632/726pyz4j53.1",
+      "license_claim": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "official_page": "https://data.mendeley.com/datasets/726pyz4j53/1",
+      "official_title": "PhiLegit-100K",
+      "official_version_date": "2026-09-22",
+      "access_recheck_date": "2026-10-22",
+      "official_files_documented": ["PhiLegit-100K.csv", "README_PhiLegit-100K.md"],
+      "retrieval_date": null,
+      "publisher": "Mendeley Data",
+      "release_version": "1",
+      "reported_file": "PhiLegit-100K.csv (described by current official card; actual download payload not acquired)",
+      "upstream_sources": [
+        "PhiUSIIL",
+        "LegitPhish"
+      ]
+    },
+    "PhishVN": {
+      "attribution": "Cite the dataset and attribute upstream contributors applicable to reused strata, including NCSC/Tin Nhiem Mang, Tranco, ChongLuaDao and OpenPhish.",
+      "authors": [
+        "Thai Nguyen Vu"
+      ],
+      "download_status": "Current v4 card lists dataset_url.csv, vn_compphish.csv, splits, abuse_type.csv, attacks, docs and MANIFEST with Download All. No download in this task. User-provided direct URL returned HTTP 404; documented API requires OAuth2; shell network blocked; local archive origin unverified.",
+      "identifier": "10.17632/b97hxbxtpd.4",
+      "license_claim": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "official_page": "https://data.mendeley.com/datasets/b97hxbxtpd/4",
+      "official_title": "PhishVN v3.1.0 open",
+      "official_version_date": "2026-08-18",
+      "access_recheck_date": "2026-10-22",
+      "official_files_documented": ["dataset_url.csv", "vn_compphish.csv", "splits/url_train.csv", "splits/url_val.csv", "splits/url_test.csv", "abuse_type.csv", "attacks/", "docs/", "MANIFEST.txt"],
+      "retrieval_date": null,
+      "publisher": "Mendeley Data",
+      "release_version": "4 (open data documented as v3.1.0)",
+      "upstream_sources": [
+        "NCSC/Tin Nhiem Mang",
+        "Tranco",
+        "ChongLuaDao",
+        "OpenPhish"
+      ]
+    }
+  }
+}

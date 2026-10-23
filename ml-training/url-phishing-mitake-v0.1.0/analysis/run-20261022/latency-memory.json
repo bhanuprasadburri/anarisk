@@ -1,0 +1,52 @@
+{
+  "artifact_bytes": 5115870,
+  "artifact_sha256": "cb222a8481750df4e9fba9b22905b642aa69780d0cbb867f6bd4825da9875cfc",
+  "benchmark_type": "offline fresh-process single-URL inference and process memory; descriptive only",
+  "cold_process_startup_to_worker_ready_seconds": 1.76504839991685,
+  "first_single_url_prediction_seconds": 0.016833600006066263,
+  "generated_at_utc": "2026-10-22T15:01:39.841136+00:00",
+  "limitations": [
+    "This is offline process timing, not API, network, or production latency.",
+    "The first prediction is measured after model load; warm samples include normalization and one-row feature transformation/prediction.",
+    "Fresh-process memory is process-local. Baseline is after Python imports and sample input parsing, before loading the artifact.",
+    "The consumed test partition is used only as a representative timing input, not for model selection."
+  ],
+  "machine": "AMD64",
+  "memory": {
+    "after_model_load": {
+      "current_working_set_mb": 227.26,
+      "method": "Windows GetProcessMemoryInfo (process working set)",
+      "peak_working_set_mb": 268.27
+    },
+    "after_warm_inference_peak": {
+      "current_working_set_mb": 227.44,
+      "method": "Windows GetProcessMemoryInfo (process working set)",
+      "peak_working_set_mb": 268.27
+    },
+    "baseline_before_model_load": {
+      "current_working_set_mb": 113.07,
+      "method": "Windows GetProcessMemoryInfo (process working set)",
+      "peak_working_set_mb": 113.07
+    }
+  },
+  "model_load_seconds": 2.7401117000263184,
+  "numpy": "2.5.4",
+  "os": "Windows-11-10.0.26300-SP0",
+  "prepared_dataset_sha256": "1ea71ccfc303a5014e896b9c901804ee3fd193305568865c4b921c52bbd3c542",
+  "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel",
+  "python": "3.14.6",
+  "sample_count": 500,
+  "sample_source": "deterministic evenly spaced URLs from the existing consumed test partition; values are never printed or saved",
+  "scikit_learn": "1.9.1",
+  "timing_scope": "Predictions call the existing backend predict_url path with its lru-cached artifact already loaded, so each includes file stat/cache lookup, shared URL normalization, TF-IDF transform, and one-row predict_proba; excludes dataset reading, JSON/report generation, and uncached artifact loading per prediction. This is an offline process benchmark, not web-service latency.",
+  "warm_single_url_latency_seconds": {
+    "maximum": 0.0075879000360146165,
+    "median": 0.0029049000004306436,
+    "minimum": 0.0009306999854743481,
+    "p95": 0.004582769947592166,
+    "p99": 0.005411898994352668,
+    "sample_count": 500,
+    "warmup_count": 5
+  },
+  "worker_exit_code": 0
+}
