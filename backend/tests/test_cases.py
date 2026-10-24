@@ -134,6 +134,35 @@ def test_resolution_requires_outcome_and_summary_and_shortcuts(client, ctx):
     assert client.post(f"/api/v1/cases/{cid}/assign", headers=ctx.h, json={"assignee_id": str(ctx.w.users["inv"].id)}).status_code == 409
 
 
+def test_takedown_draft_requires_confirmed_case_and_uses_saved_evidence(client, ctx):
+    cid = mk(client, ctx)["id"]
+    url = f"/api/v1/cases/{cid}/takedown-report"
+    assert client.get(url, headers=ctx.h).status_code == 409
+    status(client, ctx, cid, "triaged")
+    confirmed = status(client, ctx, cid, "resolved", resolution_outcome="confirmed_threat_monitoring",
+                       resolution_summary="Observed lookalike profile and linked URL; retained for platform review.")
+    assert confirmed.status_code == 200
+    result = client.get(url, headers=ctx.h)
+    assert result.status_code == 200, result.text
+    draft = result.json()
+    assert draft["brand"]["name"] == "AcmeBank"
+    assert draft["case_number"] == confirmed.json()["case_number"]
+    assert {a["id"] for a in draft["suspected_assets"]} == {ctx.e1["id"], ctx.e2["id"]}
+    assert all(a["assessment"]["signals"] for a in draft["suspected_assets"])
+    assert "not a calibrated probability" in draft["decision"]["score_note"]
+    assert "does not submit" in draft["submission_note"]
+    assert "fraud" not in draft["requested_action"].lower()
+    assert client.get(url, headers=ctx.w.h["owner"]).status_code == 403
+
+
+def test_takedown_draft_rejects_false_positive_resolution(client, ctx):
+    cid = mk(client, ctx)["id"]
+    status(client, ctx, cid, "triaged")
+    status(client, ctx, cid, "resolved", resolution_outcome="false_positive", resolution_summary="Reviewed as a fan account.")
+    result = client.get(f"/api/v1/cases/{cid}/takedown-report", headers=ctx.h)
+    assert result.status_code == 409 and result.json()["error"]["code"] == "not_confirmed"
+
+
 def test_reopen_requires_admin_and_comment(client, ctx):
     cid = mk(client, ctx)["id"]
     status(client, ctx, cid, "triaged")

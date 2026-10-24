@@ -101,6 +101,134 @@ function signalMeta(signalType?: SignalType | null) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Side-by-side: registered official asset vs. what this asset shows   */
+/* ------------------------------------------------------------------ */
+
+interface ComparisonRow {
+  key: string;
+  field: string;
+  observed: string;
+  official: string;
+  similarity: number | null;
+  reason: string;
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  name: 'Name',
+  display_name: 'Name',
+  handle: 'Handle',
+  username: 'Handle',
+  package_id: 'App package',
+  publisher_name: 'Publisher',
+  bio: 'Bio / description',
+  'bio/description': 'Bio / description',
+  logo: 'Logo / image',
+};
+
+const fieldLabel = (raw: string): string => FIELD_LABELS[raw] || raw.replace(/_/g, ' ');
+
+/**
+ * Collects every official-vs-observed comparison pair the detectors stored on the signals:
+ * identity matches (name/handle/publisher/bio) from the impersonation signal and the
+ * perceptual-hash distance from the brand-logo signal. Signals that measure something else
+ * (behaviour, URL risk) contribute no rows.
+ */
+function collectComparisonRows(signals: DetectionSignal[]): ComparisonRow[] {
+  const rows: ComparisonRow[] = [];
+  for (const s of signals) {
+    const meta = (s.metadata || {}) as Record<string, any>;
+    if (Array.isArray(meta.matches)) {
+      meta.matches.forEach((m: Record<string, any>, i: number) => {
+        if (!m || typeof m !== 'object') return;
+        rows.push({
+          key: `${s.id}-match-${i}`,
+          field: fieldLabel(String(m.field || m.kind || s.signal_type)),
+          observed:
+            typeof m.value === 'string' && m.value
+              ? m.value
+              : '— (overlap measured; the literal value was not stored by this analysis)',
+          official: typeof m.official === 'string' && m.official ? m.official : '—',
+          similarity: typeof m.similarity === 'number' ? m.similarity : null,
+          reason: typeof m.reason === 'string' ? m.reason : '',
+        });
+      });
+    }
+    if (typeof meta.best_distance === 'number' && Array.isArray(meta.top_matches) && meta.top_matches.length > 0) {
+      const best = meta.top_matches[0] as Record<string, any>;
+      rows.push({
+        key: `${s.id}-logo`,
+        field: fieldLabel('logo'),
+        observed: 'Image used on this asset',
+        official: String(best.reference_note || 'Registered official brand image'),
+        // threshold-aware detector score so this row agrees with the signals table below
+        // (meta.similarity is the raw 1 - d/64 ratio, which ignores the match threshold)
+        similarity: typeof s.score === 'number' ? s.score : typeof meta.similarity === 'number' ? meta.similarity : null,
+        reason: best.exact_file_match
+          ? 'Byte-identical file match with the registered image'
+          : `Perceptual-hash distance ${best.distance}/${meta.hash_bits ?? 64} from the official image`,
+      });
+    }
+  }
+  return rows;
+}
+
+export const ComparisonTable: React.FC<{ signals: DetectionSignal[] }> = ({ signals }) => {
+  const rows = useMemo(() => collectComparisonRows(signals), [signals]);
+  if (rows.length === 0) return null;
+  return (
+    <section>
+      <h3 className="text-[11px] font-bold uppercase tracking-wider text-faint">
+        Official vs. observed ({rows.length} comparison{rows.length === 1 ? '' : 's'})
+      </h3>
+      <p className="mt-1 text-[12px] leading-relaxed text-muted">
+        The brand's registered asset beside what this account or app actually shows. Similarity is a
+        measured comparison used to prioritise review — it is not proof that the asset is fraudulent.
+      </p>
+      <div className="mt-2 overflow-hidden rounded-xl border border-line-soft">
+        <table className="w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-line-soft bg-bg/60">
+              <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">Field</th>
+              <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">
+                Observed on this asset
+              </th>
+              <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">
+                Official (registered)
+              </th>
+              <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">
+                Similarity
+              </th>
+              <th className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-faint">
+                How it was measured
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-b border-line-soft last:border-0 align-top">
+                <td className="px-3.5 py-3 text-[12.5px] font-semibold text-ink">{r.field}</td>
+                <td className="max-w-[240px] break-words px-3.5 py-3 text-[12px] leading-relaxed text-ink-700">
+                  {r.observed}
+                </td>
+                <td className="max-w-[240px] break-words px-3.5 py-3 text-[12px] font-medium leading-relaxed text-brand-700">
+                  {r.official}
+                </td>
+                <td className="min-w-[130px] px-3.5 py-3">
+                  <ScoreBar value={r.similarity} />
+                </td>
+                <td className="max-w-[240px] break-words px-3.5 py-3 text-[12px] leading-relaxed text-muted">
+                  {r.reason || '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /* Page                                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -295,6 +423,26 @@ export const ThreatIntelPage: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailRetry, setDetailRetry] = useState(0);
+
+  useEffect(() => {
+    const requestedId = searchParams.get('assessment_id');
+    if (!requestedId) return;
+    setDetailId(requestedId);
+    const row = result?.items.find((item) => item.id === requestedId);
+    if (row) {
+      setSelectedId(row.id);
+      setDetailItem(row);
+    }
+  }, [searchParams, result]);
+
+  const closeDetail = () => {
+    setDetailId(null);
+    if (searchParams.has('assessment_id')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('assessment_id');
+      setSearchParams(next, { replace: true });
+    }
+  };
 
   useEffect(() => {
     if (!detailId) {
@@ -1131,7 +1279,7 @@ export const ThreatIntelPage: React.FC = () => {
       {/* Detection details modal */}
       <Modal
         open={!!detailId}
-        onClose={() => setDetailId(null)}
+        onClose={closeDetail}
         size="lg"
         title={
           detailItem ? (
@@ -1211,6 +1359,14 @@ export const ThreatIntelPage: React.FC = () => {
                     Sample data — synthetic demo assessment, not a live threat.
                   </p>
                 )}
+                {assessment.confidence_breakdown?.provisional && (
+                  <p className="rounded-lg border border-warning-100 bg-warning-100/50 px-2.5 py-1.5 text-[12px] font-semibold text-warning-600">
+                    Provisional — signal coverage{' '}
+                    {Number(assessment.confidence_breakdown.coverage ?? 0).toFixed(2)} of{' '}
+                    {Number(assessment.confidence_breakdown.coverage_floor ?? 0.6).toFixed(2)} required: this
+                    ranking rests on partial evidence.
+                  </p>
+                )}
                 {assessment.notes && <p className="italic">{assessment.notes}</p>}
               </div>
             </div>
@@ -1226,6 +1382,9 @@ export const ThreatIntelPage: React.FC = () => {
                   'No explanation was produced — no signal produced a score for this entity.'}
               </p>
             </section>
+
+            {/* Official vs. observed — side-by-side evidence */}
+            <ComparisonTable signals={assessment.signals} />
 
             {/* Signals breakdown */}
             <section>

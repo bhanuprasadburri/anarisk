@@ -1,0 +1,138 @@
+{
+  "model_name": "AnaRisk malicious URL character TF-IDF baseline",
+  "model_version": "anarisk-url-char-tfidf-0.1.0-research-f9f3c021",
+  "trained_at_utc": "2026-10-24T10:26:13.957518+00:00",
+  "dataset_file": "urlphish-prepared.csv",
+  "dataset_sha256": "f9f3c021960f0ece46212ecf96b47ef626ca635591ef3dc6f81d92e711e7391a",
+  "dataset_rows": 115076,
+  "label_definitions": {
+    "0": "benign",
+    "1": "phishing"
+  },
+  "source_categories_preserved": true,
+  "seed": 20261021,
+  "feature_schema": "char-tfidf-url-v1",
+  "features": {
+    "type": "character TF-IDF",
+    "analyzer": "char",
+    "ngram_range": [
+      3,
+      5
+    ],
+    "min_df": 2,
+    "max_features": 300000,
+    "sublinear_tf": true
+  },
+  "classifier": {
+    "type": "LogisticRegression",
+    "max_iter": 1000,
+    "class_weight": "balanced",
+    "solver": "liblinear"
+  },
+  "dependencies": {
+    "scikit_learn": "1.9.1",
+    "joblib": "1.6.0",
+    "numpy": "2.5.4"
+  },
+  "split_method": "Deterministic SHA-256 registrable-domain group assignment: 70% train, 15% validation, 15% test by group hash; test held out until final evaluation.",
+  "split": {
+    "train": {
+      "rows": 81448,
+      "binary_label_counts": {
+        "0": 69272,
+        "1": 12176
+      },
+      "source_category_counts": {
+        "benign": 69272,
+        "phishing": 12176
+      },
+      "registrable_domain_groups": 53868
+    },
+    "validation": {
+      "rows": 17655,
+      "binary_label_counts": {
+        "0": 14679,
+        "1": 2976
+      },
+      "source_category_counts": {
+        "benign": 14679,
+        "phishing": 2976
+      },
+      "registrable_domain_groups": 11611
+    },
+    "test": {
+      "rows": 15973,
+      "binary_label_counts": {
+        "0": 14592,
+        "1": 1381
+      },
+      "source_category_counts": {
+        "benign": 14592,
+        "phishing": 1381
+      },
+      "registrable_domain_groups": 11603
+    }
+  },
+  "threshold_selection": {
+    "method": "maximum validation recall subject to the stated validation false-positive-rate target",
+    "target_validation_false_positive_rate": 0.01,
+    "selected_threshold": 0.5050669014675965,
+    "validation_metrics_at_threshold": {
+      "precision_by_class_0_1": [
+        0.9903282931480725,
+        0.9532458795829128
+      ],
+      "recall_by_class_0_1": [
+        0.9905306901015055,
+        0.9522849462365591
+      ],
+      "f1": 0.9527651706169104,
+      "confusion_matrix_labels_0_1": [
+        [
+          14540,
+          139
+        ],
+        [
+          142,
+          2834
+        ]
+      ],
+      "false_positive_rate": 0.009469309898494448,
+      "false_negative_count": 142,
+      "average_precision": 0.9855809687737879,
+      "roc_auc": 0.995107829962634
+    }
+  },
+  "test_metrics_at_selected_threshold": {
+    "precision_by_class_0_1": [
+      0.9917791326984997,
+      0.9164244186046512
+    ],
+    "recall_by_class_0_1": [
+      0.9921189692982456,
+      0.9131064446053584
+    ],
+    "f1": 0.9147624229234675,
+    "confusion_matrix_labels_0_1": [
+      [
+        14477,
+        115
+      ],
+      [
+        120,
+        1261
+      ]
+    ],
+    "false_positive_rate": 0.007881030701754386,
+    "false_negative_count": 120,
+    "average_precision": 0.9728648120997229,
+    "roc_auc": 0.9961848099838663
+  },
+  "score_is_calibrated_probability": false,
+  "limitations": [
+    "No timestamps are present, so temporal evaluation is unavailable.",
+    "Labels and license/provenance were not independently verified.",
+    "The registrable-domain helper uses a limited suffix list.",
+    "This is an offline research baseline, not a production verdict."
+  ]
+}

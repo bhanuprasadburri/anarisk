@@ -117,6 +117,10 @@ class Settings(BaseSettings):
     weight_impersonation: float = 0.30
     weight_url_risk: float = 0.25
     weight_behavior: float = 0.15
+    # coverage floor: sum of the configured weights of the signals that actually ran (0..1).
+    # Below this the score is still computed (weights renormalised) but is flagged `provisional`
+    # in confidence_breakdown so the analyst sees it rests on thin evidence.
+    scoring_coverage_floor: float = 0.60
 
     # severity thresholds on the overall risk score (below `medium` => low)
     severity_medium: float = 0.40
@@ -145,6 +149,16 @@ class Settings(BaseSettings):
     suspicious_keywords: list[str] = [
         "login", "signin", "verify", "secure", "update", "account", "wallet", "giveaway", "claim", "bonus",
         "password", "support", "refund", "recover", "airdrop", "kyc",
+    ]
+    # credential / payment solicitation language in the asset's own text ("asking people to share
+    # passwords or send money"). Matched as word-bounded phrases against normalised text; a
+    # heuristic reason for review, never a verdict on its own.
+    solicitation_phrases: list[str] = [
+        "password", "pass word", "login details", "log in details", "credentials", "secret question",
+        "otp", "one time code", "one-time code", "verification code", "card number", "cvv", "pin code",
+        "seed phrase", "private key", "bank details", "account details",
+        "send money", "wire transfer", "western union", "gift card", "bitcoin", "usdt",
+        "processing fee", "transfer fee", "verification fee", "tax fee", "pay in advance",
     ]
     account_age_days_thresholds: list[int] = [7, 30, 90, 365]  # score 1.0/0.7/0.4/0.15 then 0
     velocity_posts_per_day_saturation: float = 20.0
@@ -222,6 +236,8 @@ class Settings(BaseSettings):
             self.weight_behavior /= total
         if not (0 < self.severity_medium < self.severity_high < self.severity_critical <= 1):
             raise ValueError("severity thresholds must satisfy 0 < medium < high < critical <= 1")
+        if not (0.0 <= self.scoring_coverage_floor <= 1.0):
+            raise ValueError("SCORING_COVERAGE_FLOOR must be between 0 and 1")
         c = self.confidence_w_evidence + self.confidence_w_availability + self.confidence_w_corroboration
         if abs(c - 1.0) > 1e-9:
             raise ValueError("confidence component weights must sum to 1")

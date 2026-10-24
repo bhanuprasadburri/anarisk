@@ -1,0 +1,92 @@
+{
+  "prepared_at_utc": "2026-10-24T10:24:32.047155+00:00",
+  "source_file": "Dataset.csv",
+  "source_sha256": "d68b3cd0648dcf9c775347416ad1a8995e8a025921fbe3871ca6158d4db3c3a1",
+  "source_bytes": 15149338,
+  "source_rows": 116600,
+  "source_label_counts": {
+    "0": 100000,
+    "1": 16600
+  },
+  "binary_label_mapping": {
+    "0": "benign",
+    "1": "phishing"
+  },
+  "source_columns": [
+    "url",
+    "url_len",
+    "dom",
+    "dom_len",
+    "is_ip",
+    "tld",
+    "tld_len",
+    "subdom_cnt",
+    "letter_cnt",
+    "digit_cnt",
+    "special_cnt",
+    "eq_cnt",
+    "qm_cnt",
+    "amp_cnt",
+    "dot_cnt",
+    "dash_cnt",
+    "under_cnt",
+    "letter_ratio",
+    "digit_ratio",
+    "spec_ratio",
+    "is_https",
+    "slash_cnt",
+    "entropy",
+    "path_len",
+    "query_len",
+    "label"
+  ],
+  "feature_columns_validated_but_not_used": [
+    "amp_cnt",
+    "dash_cnt",
+    "digit_cnt",
+    "digit_ratio",
+    "dom_len",
+    "dot_cnt",
+    "entropy",
+    "eq_cnt",
+    "is_https",
+    "is_ip",
+    "letter_cnt",
+    "letter_ratio",
+    "path_len",
+    "qm_cnt",
+    "query_len",
+    "slash_cnt",
+    "spec_ratio",
+    "special_cnt",
+    "subdom_cnt",
+    "tld_len",
+    "under_cnt",
+    "url_len"
+  ],
+  "reference_columns_excluded": [
+    "dom",
+    "tld",
+    "url"
+  ],
+  "missing_cells_by_column": {
+    "tld": 14
+  },
+  "malformed_urls": 0,
+  "normalized_urls_changed": 12737,
+  "duplicate_normalized_rows": 1524,
+  "conflicting_normalized_urls_excluded": 0,
+  "prepared_rows": 115076,
+  "prepared_label_counts": {
+    "0": 98543,
+    "1": 16533
+  },
+  "prepared_sha256": "f9f3c021960f0ece46212ecf96b47ef626ca635591ef3dc6f81d92e711e7391a",
+  "provenance": "Local file schema matches URL-Phish; local file revision is not verified against the publisher.",
+  "limitations": [
+    "Publisher page row count differs from local row count.",
+    "No timestamps or collection-source IDs are present for temporal/source holdouts.",
+    "Training uses raw normalized URL text; validated engineered values are not model inputs.",
+    "URLs were not fetched or resolved."
+  ]
+}

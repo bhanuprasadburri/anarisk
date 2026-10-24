@@ -1,5 +1,12 @@
-"""Signal B - impersonation and copied text: names, handles, publisher identities and bios vs official references."""
+"""Signal B - impersonation and copied text: names, handles, publisher identities and bios vs official references.
+
+Also reports credential / payment solicitation language found in the same text (the report's
+"asking people to share passwords or send money" reason) as its own metadata flag, explanation
+line and a small bounded score bonus - a reason for review, not a verdict.
+"""
 from __future__ import annotations
+
+import re
 
 from app.models.enums import ReferenceKind, SignalStatus, SignalType
 from app.services.detection.base import DetectionContext, SignalResult
@@ -7,6 +14,13 @@ from app.services.detection.common import attrs, entity_bio, entity_name_fields
 from app.utils.text import identity_similarity, normalize_text, squash_identity, text_overlap
 
 OFFICIAL_CLAIM_WORDS = ("official", "verified", "support", "customer care", "helpdesk", "help desk", "authentic", "original")
+
+
+def solicitation_matches(text: str, phrases: list[str]) -> list[str]:
+    """Configured phrases that appear in `text` (normalised input, word-bounded so 'otp' misses 'hotpot')."""
+    if not text:
+        return []
+    return sorted(p for p in phrases if re.search(rf"\b{re.escape(p.lower())}\b", text))
 
 
 def _scale(sim: float, floor: float) -> float:
@@ -67,7 +81,8 @@ class ImpersonationDetector:
             for r, ov in bio_refs:
                 ov_ratio = text_overlap(bio, ov)
                 if ov_ratio >= 0.6 and (best_bio is None or ov_ratio > best_bio["similarity"]):
-                    best_bio = {"kind": "bio", "field": "bio/description", "official": ov[:120], "reference_id": str(r.id) if r else None, "similarity": round(ov_ratio, 3), "reason": "word-set overlap with official text"}
+                    # both sides stored verbatim so the analyst can read the comparison side by side
+                    best_bio = {"kind": "bio", "field": "bio/description", "value": bio, "official": ov, "reference_id": str(r.id) if r else None, "similarity": round(ov_ratio, 3), "reason": "word-set overlap with official text"}
             if best_bio:
                 bio_eff = _scale(best_bio["similarity"], 0.6)
                 matches.append(best_bio)
@@ -79,6 +94,13 @@ class ImpersonationDetector:
         text_all = normalize_text(" ".join(v for _, v in fields) + " " + (publisher or ""))
         claims_official = any(w in text_all for w in OFFICIAL_CLAIM_WORDS)
         if claims_official and name_eff >= 0.3:
+            score = min(1.0, score + 0.05)
+        # credential / payment solicitation in the asset's own text (bounded bonus, like claims_official)
+        solicited = solicitation_matches(
+            normalize_text(" ".join(v for _, v in fields) + " " + (publisher or "") + " " + (bio or "")),
+            s.solicitation_phrases,
+        )
+        if solicited:
             score = min(1.0, score + 0.05)
         score = round(score, 4)
 
@@ -93,6 +115,8 @@ class ImpersonationDetector:
             parts.append(f"bio/description overlaps official text ({best_bio['similarity']:.0%} word overlap) - likely copied")
         if claims_official and name_eff >= 0.3:
             parts.append("name claims official/support status")
+        if solicited:
+            parts.append("text asks for credentials or money (matched: " + ", ".join(solicited[:3]) + ")")
         if independent >= 2:
             parts.append("multiple independent identity fields agree")
         expl = ("Impersonation indicators: " + "; ".join(parts) + ".") if parts else "No meaningful resemblance to official names, handles, publisher or bio text."
@@ -100,5 +124,6 @@ class ImpersonationDetector:
         return SignalResult(
             self.signal_type, SignalStatus.OK, score, expl, ev_refs,
             {"components": components, "matches": matches, "claims_official": claims_official,
+             "solicits_sensitive_action": bool(solicited), "solicitation_phrases_matched": solicited,
              "compared_fields": [f for f, _ in fields] + (["publisher_name"] if publisher else []) + (["bio"] if bio else [])},
         )

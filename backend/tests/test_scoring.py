@@ -106,3 +106,43 @@ def test_production_refuses_unsafe_configuration():
     with pytest.raises(ValidationError):
         Settings(environment="production", secret_key="x" * 40, cors_origins=["*"], _env_file=None)
     assert Settings(environment="production", secret_key="x" * 40, cors_origins=["https://app.example"], _env_file=None).environment == "production"
+
+
+def test_full_coverage_is_not_provisional(settings):
+    c = compute_score(four(0.9, 0.8, 0.7, 0.6), Provenance.COLLECTED, settings)
+    bd = c.confidence_breakdown
+    assert bd["coverage"] == pytest.approx(1.0) and bd["coverage_floor"] == 0.60
+    assert bd["provisional"] is False and "Provisional" not in c.notes
+    assert bd["coverage"] == pytest.approx(bd["availability"])       # coverage IS the sum of observed weights
+
+
+def test_thin_evidence_is_marked_provisional(settings):
+    # only the 0.15-weight behaviour signal ran: coverage 0.15 < 0.60 evidence floor
+    c = compute_score([R(S.BEHAVIOR, 0.8)], Provenance.COLLECTED, settings)
+    bd = c.confidence_breakdown
+    assert bd["coverage"] == pytest.approx(0.15) and bd["provisional"] is True
+    assert "Provisional" in c.notes and "partial evidence" in c.notes
+    assert c.risk_score == 0.8            # still scored (weights renormalised), not zeroed and not hidden
+
+
+def test_coverage_at_or_above_floor_is_representative(settings):
+    # logo + impersonation + url_risk = 0.85 >= 0.60 -> representative even though behaviour is missing
+    c = compute_score(four(0.5, 0.5, 0.5, None), Provenance.COLLECTED, settings)
+    bd = c.confidence_breakdown
+    assert bd["coverage"] == pytest.approx(0.85) and bd["provisional"] is False
+    assert "Provisional" not in c.notes
+
+
+def test_no_evidence_is_zero_coverage_and_unknown(settings):
+    c = compute_score(four(None, None, None, None), Provenance.MANUAL, settings)
+    bd = c.confidence_breakdown
+    assert bd["coverage"] == 0.0 and bd["provisional"] is True
+    assert c.risk_score is None and c.severity == Severity.UNKNOWN   # insufficient evidence, not a low-risk verdict
+
+
+def test_coverage_floor_is_validated():
+    with pytest.raises(ValidationError):
+        Settings(scoring_coverage_floor=1.5, _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(scoring_coverage_floor=-0.1, _env_file=None)
+    assert Settings(scoring_coverage_floor=0.0, _env_file=None).scoring_coverage_floor == 0.0

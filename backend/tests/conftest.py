@@ -24,6 +24,10 @@ os.environ.update({
     "RATE_LIMIT_ENABLED": "false", "BCRYPT_ROUNDS": "4", "ALLOW_PUBLIC_REGISTRATION": "true", "URL_FETCH_ENABLED": "false", "DEBUG": "false",
     # Hermetic: never read the developer's .env email settings; individual tests opt in to "memory".
     "EMAIL_PROVIDER": "none",
+    # Hermetic: a developer .env may set SUPABASE_URL, which flips supabase_auth_enabled and
+    # would redirect every login test to the Supabase flow (HTTP 410). The default test auth
+    # path is AnaRisk's own login; tests exercising Supabase override settings directly.
+    "SUPABASE_URL": "",
 })
 
 import io  # noqa: E402

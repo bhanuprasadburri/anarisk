@@ -10,7 +10,7 @@ from app.models.entity import (
 )
 from app.models.feedback import Feedback
 from app.models.integration import IntegrationConfig, MonitoringSyncRun, MonitoringTarget
-from app.models.notification import Notification, PasswordResetToken
+from app.models.notification import HighRiskAlert, Notification, PasswordResetToken
 from app.models.tool import ToolAnalysis
 from app.models.user import Organization, User
 
@@ -18,6 +18,6 @@ __all__ = [
     "AuditLog", "Base", "Brand", "BrandReference", "DataSource", "CaseAssignment", "CaseEntity",
     "CaseEscalation", "CaseEvent", "CaseEvidenceLink", "CaseNote", "InvestigationCase", "CollectionRecord",
     "DetectionSignal", "DigitalEntity", "EntityRelationship", "EvidenceRecord", "RiskAssessment",
-    "IntegrationConfig", "MonitoringTarget", "MonitoringSyncRun", "Notification", "PasswordResetToken", "Organization", "User",
+    "IntegrationConfig", "MonitoringTarget", "MonitoringSyncRun", "HighRiskAlert", "Notification", "PasswordResetToken", "Organization", "User",
     "EmailVerificationToken", "EmailDeliveryLog", "ToolAnalysis", "Feedback",
 ]

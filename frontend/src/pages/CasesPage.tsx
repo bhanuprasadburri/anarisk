@@ -479,6 +479,8 @@ export const CasesPage: React.FC = () => {
   const status = params.get('status') ?? '';
   const severity = params.get('severity') ?? '';
   const brandId = params.get('brand') ?? '';
+  // worklist focus: 'mine' (assigned to me) | 'unassigned' (nobody has claimed it) | ''
+  const assignee = params.get('assignee') ?? '';
   const sort = params.get('sort') ?? 'updated_at';
   const order: 'asc' | 'desc' = params.get('order') === 'asc' ? 'asc' : 'desc';
   const page = Math.max(1, Number(params.get('page') || 1));
@@ -488,7 +490,7 @@ export const CasesPage: React.FC = () => {
   const canTriage = hasPermission('case:triage');
   const canAssign = hasPermission('case:assign');
   const isAdmin = role === 'administrator';
-  const hasFilters = !!(q || status || severity || brandId);
+  const hasFilters = !!(q || status || severity || brandId || assignee);
 
   const update = useCallback(
     (patch: Record<string, string | null>) => {
@@ -518,6 +520,8 @@ export const CasesPage: React.FC = () => {
         status: status ? [status] : undefined,
         severity: severity ? [severity] : undefined,
         brand_id: brandId || undefined,
+        mine: assignee === 'mine' || undefined,
+        unassigned: assignee === 'unassigned' || undefined,
         page,
         page_size: pageSize,
         sort,
@@ -529,7 +533,7 @@ export const CasesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [q, status, severity, brandId, page, pageSize, sort, order]);
+  }, [q, status, severity, brandId, assignee, page, pageSize, sort, order]);
 
   useEffect(() => {
     void load();
@@ -772,11 +776,21 @@ export const CasesPage: React.FC = () => {
             options={brands.map((b) => ({ value: b.id, label: b.name }))}
             allLabel="All brands"
           />
+          <FilterSelect
+            label="Filter by assignee"
+            value={assignee}
+            onChange={(v) => update({ assignee: v })}
+            options={[
+              { value: 'mine', label: 'My cases' },
+              { value: 'unassigned', label: 'Unassigned' },
+            ]}
+            allLabel="Any assignee"
+          />
           {hasFilters && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => update({ q: null, status: null, severity: null, brand: null })}
+              onClick={() => update({ q: null, status: null, severity: null, brand: null, assignee: null })}
             >
               Clear filters
             </Button>

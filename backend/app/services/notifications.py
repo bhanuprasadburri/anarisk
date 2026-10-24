@@ -11,10 +11,11 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import NotFoundError, ServiceUnavailableError
-from app.models import Notification, User
+from app.models import HighRiskAlert, Notification, User
 from app.models.enums import Severity, UserRole
 from app.services import audit
 
@@ -128,14 +129,30 @@ def broadcast(db: Session, actor: User, title: str, message: str) -> tuple[int, 
 
 
 def notify_high_risk(db: Session, entity, assessment) -> int:
-    """Notify administrators about a high/critical assessment. Deduped per entity within 24 hours."""
-    if assessment.severity not in (Severity.HIGH, Severity.CRITICAL):
+    """Persist one alert per assessment, then add an in-app notice for each admin."""
+    if assessment.severity not in (Severity.HIGH, Severity.CRITICAL) or assessment.risk_score is None:
+        return 0
+    from app.services.official import is_official_asset
+
+    if is_official_asset(entity, entity.brand.references):
         return 0
     risk = assessment.risk_score
+    summary = (f"Heuristic risk score {risk:.2f} ({assessment.severity.value}) for a {entity.entity_type.value} "
+               f"({entity.provenance.value} data). Human review required; score is not a calibrated probability.")
+    alert = HighRiskAlert(
+        assessment_id=assessment.id, entity_id=entity.id, rule_version=assessment.model_version,
+        risk_score=risk, summary=summary,
+    )
+    try:
+        with db.begin_nested():
+            db.add(alert)
+            db.flush()
+    except IntegrityError:
+        # Unique assessment_id is the permanent, race-safe deduplication boundary.
+        return 0
     return notify(
         db, admins(db), "high_risk_detection",
         f"{assessment.severity.value.upper()} risk detection: {entity.display_name}",
-        (f"Heuristic risk score {risk:.2f} ({assessment.severity.value}) for a {entity.entity_type.value} "
-         f"({entity.provenance.value} data). Human review required - scores are unvalidated."),
-        link_url=f"/entities/{entity.id}", resource=("entity", entity.id), dedupe_hours=24,
+        summary,
+        link_url=f"/threat-intelligence?assessment_id={assessment.id}", resource=("detection_alert", alert.id),
     )

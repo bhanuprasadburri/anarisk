@@ -115,6 +115,24 @@ def test_impersonation_claims_official_boost_and_refs():
     assert all(r["type"] == "brand_reference" for r in claim.evidence_refs)
 
 
+def test_impersonation_flags_credential_and_payment_solicitation():
+    ask = ImpersonationDetector().run(ctx(entity(name="AcmeBank Care", attrs={"bio": "Message us your card number to verify your account and send money for processing."})))
+    assert ask.metadata["solicits_sensitive_action"] is True
+    assert "card number" in ask.metadata["solicitation_phrases_matched"] and "send money" in ask.metadata["solicitation_phrases_matched"]
+    assert "text asks for credentials or money" in ask.explanation
+
+
+def test_impersonation_clean_text_is_not_flagged_as_solicitation():
+    r = ImpersonationDetector().run(ctx(entity(name="Gardening Tips Daily", attrs={"bio": "We love roses and tomatoes and sharing seasonal advice with you."})))
+    assert r.metadata["solicits_sensitive_action"] is False and r.metadata["solicitation_phrases_matched"] == []
+
+
+def test_solicitation_matching_is_word_bounded():
+    from app.services.detection.impersonation import solicitation_matches
+    assert solicitation_matches("your hotpot recipe", ["otp"]) == []          # 'otp' must not match inside 'hotpot'
+    assert solicitation_matches("reset your otp now", ["otp"]) == ["otp"]
+
+
 # ---------------- C. URLs ----------------
 def url_entity(*urls, **attrs):
     return entity(EntityType.SOCIAL_PROFILE, attrs={"links": list(urls), **attrs})

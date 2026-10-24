@@ -1,7 +1,7 @@
 # AnaRisk — API Reference
 
 Generated from the current FastAPI OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).
-Base URL: `http://127.0.0.1:8000/api/v1` — **114 endpoints** across 19 tags.
+Base URL: `http://127.0.0.1:8000/api/v1` — **115 endpoints** across 19 tags.
 
 Authentication: `Authorization: Bearer <JWT>` (obtain via `POST /auth/login`).
 Role checks are enforced server-side per endpoint; unauthenticated requests return 401,
@@ -47,15 +47,16 @@ missing permissions return 403.
 | POST | `/api/v1/brands/{brand_id}/references/image` | Upload an official logo/image (validated by content; hashed with pHash) |
 | DELETE | `/api/v1/brands/{brand_id}/references/{reference_id}` | Delete Reference |
 
-## Cases & Response Workflow (14)
+## Cases & Response Workflow (15)
 
 | Method | Path | Summary |
 |---|---|---|
-| GET | `/api/v1/cases` | List cases: pagination, filtering, sorting |
+| GET | `/api/v1/cases` | List cases: pagination; filters q, status, severity, brand_id, assignee_id, mine, unassigned, entity_id, open_only, min_risk; sort created_at\|updated_at\|risk_score\|confidence\|case_number\|severity |
 | POST | `/api/v1/cases` | Create a case (initial status DETECTED). Send Idempotency-Key to make retries safe. |
 | GET | `/api/v1/cases/workflow` | Configured workflow transitions |
 | DELETE | `/api/v1/cases/{case_id}` | Delete a case (administrators only). Notes/events/links cascade; entities and evidence are kept |
 | GET | `/api/v1/cases/{case_id}` | Case detail: evidence, signals, linked entities, notes, status history, escalations |
+| GET | `/api/v1/cases/{case_id}/takedown-report` | Confirmed case only; returns an evidence-backed draft for analysts with `case:resolve`. Does not submit it. |
 | PATCH | `/api/v1/cases/{case_id}` | Edit title / summary / severity / platforms (case:triage). Send `version` for optimistic concurrency -> 409 on conflict |
 | POST | `/api/v1/cases/{case_id}/assign` | Assign or reassign the owner (UNDER_REVIEW -> ASSIGNED automatically) |
 | GET | `/api/v1/cases/{case_id}/assignments` | Assignments |

@@ -1,0 +1,30 @@
+{
+  "audited_at_utc": "2026-10-24",
+  "files": {
+    "Dataset.csv": {
+      "sha256": "d68b3cd0648dcf9c775347416ad1a8995e8a025921fbe3871ca6158d4db3c3a1",
+      "rows": 116600,
+      "columns": 26,
+      "label_counts": {"0": 100000, "1": 16600},
+      "publisher_revision_verified": false
+    },
+    "spambase.data": {
+      "sha256": "b1ef93de71f97714d3d7d4f58fc9f718da7bbc8ac8a150eff2778616a8097b12",
+      "rows": 4601,
+      "features": 57,
+      "label_counts": {"0": 2788, "1": 1813},
+      "publisher_schema_match": true
+    },
+    "top-1m.csv": {
+      "sha256": "9029ed7ae14aa46a825a41fbf3412b9d391be1a90ecc6525f7096f29e4894126",
+      "rows": 1000000,
+      "columns": 2,
+      "header": false,
+      "rank_order_valid": true,
+      "unique_domains": 1000000,
+      "permanent_list_id": null,
+      "publisher_revision_verified": false,
+      "use_in_training": false
+    }
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "model_name": "AnaRisk UCI Spambase Logistic Regression research baseline",
+  "model_version": "anarisk-spambase-logreg-v1-research-b1ef93de",
+  "trained_at_utc": "2026-10-24T10:37:06.478217+00:00",
+  "feature_schema": "uci-spambase-57-v1",
+  "feature_names": [
+    "word_freq_make",
+    "word_freq_address",
+    "word_freq_all",
+    "word_freq_3d",
+    "word_freq_our",
+    "word_freq_over",
+    "word_freq_remove",
+    "word_freq_internet",
+    "word_freq_order",
+    "word_freq_mail",
+    "word_freq_receive",
+    "word_freq_will",
+    "word_freq_people",
+    "word_freq_report",
+    "word_freq_addresses",
+    "word_freq_free",
+    "word_freq_business",
+    "word_freq_email",
+    "word_freq_you",
+    "word_freq_credit",
+    "word_freq_your",
+    "word_freq_font",
+    "word_freq_000",
+    "word_freq_money",
+    "word_freq_hp",
+    "word_freq_hpl",
+    "word_freq_george",
+    "word_freq_650",
+    "word_freq_lab",
+    "word_freq_labs",
+    "word_freq_telnet",
+    "word_freq_857",
+    "word_freq_data",
+    "word_freq_415",
+    "word_freq_85",
+    "word_freq_technology",
+    "word_freq_1999",
+    "word_freq_parts",
+    "word_freq_pm",
+    "word_freq_direct",
+    "word_freq_cs",
+    "word_freq_meeting",
+    "word_freq_original",
+    "word_freq_project",
+    "word_freq_re",
+    "word_freq_edu",
+    "word_freq_table",
+    "word_freq_conference",
+    "char_freq_;",
+    "char_freq_(",
+    "char_freq_[",
+    "char_freq_!",
+    "char_freq_$",
+    "char_freq_#",
+    "capital_run_length_average",
+    "capital_run_length_longest",
+    "capital_run_length_total"
+  ],
+  "label_definition": {
+    "0": "non-spam",
+    "1": "unsolicited commercial spam"
+  },
+  "dataset_sha256": "b1ef93de71f97714d3d7d4f58fc9f718da7bbc8ac8a150eff2778616a8097b12",
+  "rows": 4595,
+  "conflicting_feature_groups_excluded": 3,
+  "conflicting_feature_rows_excluded": 6,
+  "exact_feature_groups": 4204,
+  "split_counts": {
+    "train": {
+      "rows": 3233,
+      "groups": 2972,
+      "labels": {
+        "1": 1290,
+        "0": 1943
+      }
+    },
+    "validation": {
+      "rows": 652,
+      "groups": 623,
+      "labels": {
+        "1": 248,
+        "0": 404
+      }
+    },
+    "test": {
+      "rows": 710,
+      "groups": 609,
+      "labels": {
+        "1": 272,
+        "0": 438
+      }
+    }
+  },
+  "split_method": "deterministic feature-vector SHA-256 group split 70/15/15",
+  "selection": "maximum validation recall subject to validation FPR <= 1%",
+  "threshold_selection": {
+    "selected_threshold": 0.992913683438775,
+    "validation_metrics": {
+      "precision": 0.9652173913043478,
+      "recall": 0.4475806451612903,
+      "f1": 0.6115702479338843,
+      "confusion_matrix_labels_0_1": [
+        [
+          400,
+          4
+        ],
+        [
+          137,
+          111
+        ]
+      ],
+      "false_positive_rate": 0.009900990099009901,
+      "false_negative_count": 137,
+      "average_precision": 0.9373732870347522,
+      "roc_auc": 0.971854040242734
+    }
+  },
+  "test_metrics": {
+    "precision": 0.9433962264150944,
+    "recall": 0.36764705882352944,
+    "f1": 0.5291005291005291,
+    "confusion_matrix_labels_0_1": [
+      [
+        432,
+        6
+      ],
+      [
+        172,
+        100
+      ]
+    ],
+    "false_positive_rate": 0.0136986301369863,
+    "false_negative_count": 172,
+    "average_precision": 0.9294563327846855,
+    "roc_auc": 0.961472602739726
+  },
+  "dependencies": {
+    "scikit_learn": "1.9.1",
+    "joblib": "1.6.0",
+    "numpy": "2.5.4"
+  },
+  "limitations": [
+    "This is a spam target, not a phishing target.",
+    "Input requires the original 57 engineered features; raw messages cannot be scored directly.",
+    "Dataset is from 1999 and includes collection-specific indicators.",
+    "Threshold and score are research outputs, not production decisions."
+  ]
+}

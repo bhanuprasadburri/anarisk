@@ -11,7 +11,7 @@ IMPLEMENTED**. Nothing is labeled ✅ by inspection alone._
 | Item | Status | Evidence |
 |---|---|---|
 | PostgreSQL (portable, local) for dev + tests | ✅ | PostgreSQL 17.6 local; `nimbus` (dev) and `nimbus_test` databases; pytest uses the dedicated `nimbus_test` database |
-| Migrations 0001–0011 | 🟡 | 0006 backfills personal `Self` scopes for organization-less users; 0007 adds feedback; 0008 adds case platforms; 0009 enables image tool analyses; 0010 adds the nullable Supabase Auth identity link; 0011 enables deny-by-default RLS on application tables. Apply additively with `alembic upgrade head`; this audit did not apply migrations to a deployed database |
+| Migrations 0001–0012 | 🟡 | 0006 backfills personal `Self` scopes for organization-less users; 0007 adds feedback; 0008 adds case platforms; 0009 enables image tool analyses; 0010 adds the nullable Supabase Auth identity link; 0011 enables deny-by-default RLS on application tables; 0012 adds durable high-risk alerts unique per assessment and enables RLS. Apply additively with `alembic upgrade head`; no deployed database was changed |
 | Seed data | ✅ | `python -m scripts.seed` → 1 org, 6 demo users (created pre-verified, so login works without an OTP), 3 brands, 40 entities, 100 assessments, 60 relationships, 14 cases, 24 evidence, notifications, 6 monitoring targets. All synthetic data labeled as such |
 | Local DNS quirk | ⚠️ | `localhost` resolution is broken/very slow on this machine (~130 s); everything is addressed via `127.0.0.1` (DB URLs, uvicorn, Vite `--host`, Vite proxy target). Documented in README |
 

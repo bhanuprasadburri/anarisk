@@ -432,6 +432,106 @@ def case_detail_dict(db: Session, actor: User, case: InvestigationCase) -> dict:
     }, from_attributes=True)
 
 
+def takedown_report_draft(db: Session, actor: User, case_id: uuid.UUID) -> dict:
+    """Build a factual report draft from a confirmed case and its persisted evidence only."""
+    from datetime import UTC, datetime
+
+    from app.core.errors import ConflictError
+    from app.models.enums import ResolutionOutcome
+
+    _require(actor, "case:resolve")
+    case = get_case_for_user(db, actor, case_id, detail=True)
+    confirmed = {
+        ResolutionOutcome.CONFIRMED_THREAT_ACTIONED,
+        ResolutionOutcome.CONFIRMED_THREAT_MONITORING,
+    }
+    if case.status != CaseStatus.RESOLVED or case.resolution_outcome not in confirmed:
+        raise ConflictError("A report draft is available only for a case resolved as a confirmed threat", code="not_confirmed")
+
+    detail = case_detail_dict(db, actor, case)
+    assessment = detail.risk_assessment
+    assets = []
+    for linked in detail.entities:
+        entity = linked.entity
+        saved = linked.latest_assessment
+        attrs = entity.attributes or {}
+        assets.append({
+            "role": linked.role,
+            "id": str(entity.id),
+            "name": entity.display_name,
+            "type": entity.entity_type.value,
+            "platform": entity.platform,
+            "identifier": entity.canonical_id,
+            "source_url": entity.source_url,
+            "publisher": attrs.get("publisher_name"),
+            "provenance": entity.provenance.value,
+            "observed_at": entity.last_seen_at.isoformat() if entity.last_seen_at else None,
+            "assessment": ({
+                "id": str(saved.id), "model_version": saved.model_version,
+                "risk_score": saved.risk_score, "risk_band": saved.severity.value,
+                "assessed_at": saved.assessed_at.isoformat(),
+                "signals": [{
+                    "type": s.signal_type.value, "status": s.status.value, "value": s.score,
+                    "explanation": s.explanation, "evidence_refs": s.evidence_refs,
+                    # SignalOut exposes the ORM `meta` as `metadata` (validation_alias); this holds
+                    # the stored comparison pairs (observed vs official), not a provenance label.
+                    "metadata": s.metadata,
+                } for s in saved.signals],
+            } if saved else None),
+            "evidence": [{
+                "id": str(ev.id), "kind": ev.kind.value, "title": ev.title,
+                "source_url": ev.source_url, "collected_at": ev.collected_at.isoformat(),
+                "sha256": ev.sha256, "provenance": ev.provenance.value,
+            } for ev in linked.evidence],
+        })
+
+    official = [{
+        "id": str(ref.id), "kind": ref.kind.value, "value": ref.value, "platform": ref.platform,
+        "sha256": ref.sha256, "perceptual_hash": ref.perceptual_hash,
+        "note": ref.note, "provenance": ref.provenance.value,
+    } for ref in case.brand.references]
+    history = [{
+        "type": event.event_type.value, "from_status": event.from_status.value if event.from_status else None,
+        "to_status": event.to_status.value if event.to_status else None,
+        "actor_id": str(event.actor_id) if event.actor_id else None,
+        "timestamp": event.created_at.isoformat(), "details": event.details,
+    } for event in case.events]
+    history.extend({
+        "type": "analyst_note", "actor_id": str(note.author_id) if note.author_id else None,
+        "timestamp": note.created_at.isoformat(), "note": note.body,
+    } for note in case.notes)
+    history.sort(key=lambda row: row["timestamp"])
+
+    return {
+        "generated_at": datetime.now(UTC),
+        "case_number": case.case_number,
+        "brand": {"id": str(case.brand.id), "name": case.brand.name},
+        "official_assets": official,
+        "suspected_assets": assets,
+        "case_evidence": [{
+            "id": str(ev.id), "kind": ev.kind.value, "title": ev.title,
+            "description": ev.description, "source_url": ev.source_url,
+            "collected_at": ev.collected_at.isoformat(), "sha256": ev.sha256,
+            "provenance": ev.provenance.value,
+        } for ev in detail.evidence],
+        "decision": {
+            "status": case.status.value, "outcome": case.resolution_outcome.value,
+            "reason": case.resolution_summary, "decided_at": case.resolved_at.isoformat() if case.resolved_at else None,
+            "decided_by_id": str(case.resolved_by_id) if case.resolved_by_id else None,
+            "case_risk_score": case.risk_score, "case_risk_band": case.severity.value,
+            "assessment_id": str(assessment.id) if assessment else None,
+            "score_version": assessment.model_version if assessment else None,
+            "score_note": "Heuristic score, not a calibrated probability.",
+        },
+        "investigation_history": history,
+        "requested_action": "Please review the linked evidence and assess whether the observed asset violates your platform policies. AnaRisk does not assert ownership or intent and does not submit this request.",
+        "submission_note": (
+            "Draft only. AnaRisk does not submit this report to any platform and does not contact platforms "
+            "on your behalf; review the draft and submit it through your own process if you choose to."
+        ),
+    }
+
+
 def _ev(db: Session, x: EvidenceRecord):
     """EvidenceOut for one record, with case_ids + entity populated (delegates to services/evidence.hydrate)."""
     from app.services.evidence import to_out

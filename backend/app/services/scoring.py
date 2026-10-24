@@ -15,6 +15,14 @@ CONFIDENCE (how much to trust R - independent from R's magnitude)
                        more independent signals that *agree* (high or low) => more confidence.
    Synthetic entities are additionally capped at `synthetic_confidence_cap` (default 0.40).
 
+COVERAGE   coverage = sum of configured weights of the OK signals (same value as availability above).
+         When every signal runs coverage = 1.0. If coverage >= scoring_coverage_floor (default 0.60)
+         the renormalised score is treated as representative; below the floor the score is still
+         computed (never silently zeroed) but the assessment is flagged `provisional` in
+         confidence_breakdown and a note is attached, so thin-evidence rankings are visible instead of
+         looking like full results. When NO signal can run there is no score at all and severity is
+         UNKNOWN - that is the "insufficient evidence" case, not a low-risk verdict.
+
 The thresholds and weights are illustrative heuristics. They have NOT been validated against labelled data.
 """
 from __future__ import annotations
@@ -77,7 +85,8 @@ def compute_score(results: list[SignalResult], provenance: Provenance, s: Settin
         return ScoreComputation(
             None, Severity.UNKNOWN, 0.0,
             {"evidence_quality": 0.0, "availability": 0.0, "corroboration": 0.0, "label": "low", "available_signals": [],
-             "unavailable_signals": missing, "provenance": provenance.value, "synthetic_cap_applied": False, "formula": _FORMULA},
+             "unavailable_signals": missing, "coverage": 0.0, "coverage_floor": s.scoring_coverage_floor,
+             "provisional": True, "provenance": provenance.value, "synthetic_cap_applied": False, "formula": _FORMULA},
             weights, {t: 0.0 for t in ALL_SIGNALS}, components, thresholds,
             "No detection signal had enough data; no risk score was computed. This is NOT a low-risk result.",
         )
@@ -100,16 +109,22 @@ def compute_score(results: list[SignalResult], provenance: Provenance, s: Settin
     if capped:
         conf = s.synthetic_confidence_cap
     conf = round(min(1.0, max(0.0, conf)), 4)
+    provisional = availability < s.scoring_coverage_floor
     note = "Heuristic, unvalidated scoring model - requires human review before any enforcement action."
     if missing:
         note += " Weights were renormalised over available signals; unavailable: " + ", ".join(missing) + "."
+    if provisional:
+        note += (f" Provisional: signal coverage {availability:.2f} is below the {s.scoring_coverage_floor:.2f}"
+                 " evidence floor, so this ranking rests on partial evidence.")
     if provenance == Provenance.SYNTHETIC:
         note += " Entity is synthetic demonstration data; confidence is capped."
     return ScoreComputation(
         risk, severity_for(risk, s), conf,
         {"evidence_quality": round(evidence_quality, 4), "availability": round(availability, 4),
          "corroboration": round(corroboration, 4), "label": confidence_label(conf, s), "available_signals": sorted(ok),
-         "unavailable_signals": missing, "provenance": provenance.value, "provenance_factor": pf,
+         "unavailable_signals": missing, "coverage": round(availability, 4),
+         "coverage_floor": s.scoring_coverage_floor, "provisional": provisional,
+         "provenance": provenance.value, "provenance_factor": pf,
          "synthetic_cap_applied": capped, "formula": _FORMULA},
         weights, {t: round(v, 6) for t, v in eff.items()}, {t: (round(v, 4) if v is not None else None) for t, v in components.items()},
         thresholds, note,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text, text
+from sqlalchemy import Boolean, CheckConstraint, Float, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, tz_col, uuid_pk, utcnow
@@ -29,6 +29,24 @@ class Notification(Base):
     created_at: Mapped[datetime] = tz_col(default=utcnow, nullable=False)
 
     user: Mapped["User"] = relationship(foreign_keys=[user_id])  # noqa: F821
+
+
+class HighRiskAlert(Base):
+    """One durable, deduplicated alert per high-risk assessment (detection ID)."""
+
+    __tablename__ = "high_risk_alerts"
+    __table_args__ = (
+        UniqueConstraint("assessment_id", name="uq_high_risk_alert_assessment"),
+        CheckConstraint("risk_score >= 0 AND risk_score <= 1", name="risk_range"),
+        Index("ix_high_risk_alerts_entity_created", "entity_id", text("created_at DESC")),
+    )
+    id: Mapped[uuid.UUID] = uuid_pk()
+    assessment_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("risk_assessments.id", ondelete="CASCADE"), nullable=False)
+    entity_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("digital_entities.id", ondelete="CASCADE"), nullable=False)
+    rule_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    risk_score: Mapped[float] = mapped_column(Float, nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = tz_col(default=utcnow, nullable=False)
 
 
 class PasswordResetToken(Base):

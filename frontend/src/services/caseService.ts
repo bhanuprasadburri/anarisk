@@ -7,10 +7,31 @@ export interface CaseListParams {
   severity?: string[];
   brand_id?: string;
   assignee_id?: string;
+  /** "mine" → only cases assigned to the caller. */
+  mine?: boolean;
+  /** true → only cases nobody has claimed yet. */
+  unassigned?: boolean;
   page?: number;
   page_size?: number;
   sort?: string;
   order?: 'asc' | 'desc';
+}
+
+export interface TakedownReportDraft {
+  generated_at: string;
+  case_number: string;
+  brand: { id: string; name: string };
+  official_assets: Array<{ kind: string; value: string; platform?: string | null; note?: string | null }>;
+  suspected_assets: Array<{
+    name: string; type: string; platform?: string | null; identifier: string;
+    source_url?: string | null; publisher?: string | null; observed_at?: string | null;
+    assessment?: { risk_score: number | null; risk_band: string; model_version: string; signals: Array<{ type: string; status: string; value: number | null; explanation: string }> } | null;
+  }>;
+  case_evidence: Array<{ id: string; kind: string; title: string; description?: string | null; source_url?: string | null; collected_at: string; sha256?: string | null; provenance: string }>;
+  decision: { outcome: string; reason: string; decided_at?: string | null; case_risk_score: number | null; case_risk_band: string; score_version?: string | null; score_note: string };
+  investigation_history: Array<Record<string, unknown>>;
+  requested_action: string;
+  submission_note: string;
 }
 
 export const caseService = {
@@ -20,6 +41,10 @@ export const caseService = {
 
   async getCase(caseId: string): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases/${caseId}`);
+  },
+
+  async getTakedownReport(caseId: string): Promise<TakedownReportDraft> {
+    return apiRequest<TakedownReportDraft>(`/cases/${caseId}/takedown-report`);
   },
 
   /** Server-composed sub-graph: the case's linked entities + relationships among them. */
@@ -56,7 +81,8 @@ export const caseService = {
     to_status: string,
     note?: string,
     resolution_outcome?: string,
-    resolution_summary?: string
+    resolution_summary?: string,
+    expected_status?: string
   ): Promise<InvestigationCase> {
     return apiRequest<InvestigationCase>(`/cases/${caseId}/status`, {
       method: 'POST',
@@ -65,6 +91,7 @@ export const caseService = {
         comment: note,
         resolution_outcome,
         resolution_summary,
+        expected_status,
       }),
     });
   },

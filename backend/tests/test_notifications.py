@@ -48,6 +48,53 @@ def test_notifications_empty_then_created(client, world, f):
         assert key in item, f"missing {key}"
 
 
+def test_high_risk_alert_is_per_assessment_and_persistently_deduplicated(client, world, f, db):
+    from sqlalchemy import select
+
+    from app.models import HighRiskAlert, Notification, RiskAssessment
+    from app.models.enums import Severity
+    from app.services.notifications import notify_high_risk
+
+    entity = f.website(world.h["owner"], world.brand["id"], url="https://acmebank-login.top/verify")
+    assessment = RiskAssessment(
+        entity_id=entity["id"], model_version="test-rule-v1", configured_weights={}, effective_weights={},
+        component_scores={}, risk_score=0.9, confidence_score=0.4, confidence_breakdown={},
+        severity=Severity.HIGH, thresholds={}, is_synthetic=False,
+    )
+    db.add(assessment)
+    db.flush()
+    from app.models import DigitalEntity
+    entity_row = db.get(DigitalEntity, entity["id"])
+
+    assert notify_high_risk(db, entity_row, assessment) >= 1
+    assert notify_high_risk(db, entity_row, assessment) == 0
+    alerts = list(db.scalars(select(HighRiskAlert).where(HighRiskAlert.assessment_id == assessment.id)))
+    assert len(alerts) == 1 and alerts[0].rule_version == "test-rule-v1" and alerts[0].risk_score == 0.9
+    notice = db.scalar(select(Notification).where(Notification.type == "high_risk_detection"))
+    assert notice.resource_type == "detection_alert" and str(assessment.id) in notice.link_url
+
+
+def test_high_risk_alert_excludes_verified_official_assets(client, world, f, db):
+    from sqlalchemy import select
+
+    from app.models import HighRiskAlert, RiskAssessment
+    from app.models.enums import Severity
+    from app.services.notifications import notify_high_risk
+
+    entity = f.website(world.h["owner"], world.brand["id"], url="https://acmebank.example/")
+    assessment = RiskAssessment(
+        entity_id=entity["id"], model_version="test-rule-v1", configured_weights={}, effective_weights={},
+        component_scores={}, risk_score=0.95, confidence_score=0.4, confidence_breakdown={},
+        severity=Severity.CRITICAL, thresholds={}, is_synthetic=False,
+    )
+    db.add(assessment)
+    db.flush()
+    from app.models import DigitalEntity
+    entity_row = db.get(DigitalEntity, entity["id"])
+    assert notify_high_risk(db, entity_row, assessment) == 0
+    assert db.scalar(select(HighRiskAlert.id).where(HighRiskAlert.assessment_id == assessment.id)) is None
+
+
 def test_assignment_notifies_the_assignee(client, world, f):
     h = world.h["inv"]
     case = _make_case(client, world, f, title="assign me")

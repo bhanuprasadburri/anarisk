@@ -10,7 +10,7 @@ from app.models import User
 from app.models.enums import CaseStatus, Severity
 from app.schemas.case import (
     AssignmentOut, CaseAssign, CaseCreate, CaseDetail, CaseEntityLink, CasePatch, CaseStatusUpdate, CaseSummary, EscalateRequest, NoteCreate, NoteOut,
-    ResolveRequest,
+    ResolveRequest, TakedownReportOut,
 )
 from app.schemas.common import Page
 from app.schemas.graph import GraphResponse
@@ -53,6 +53,12 @@ def workflow(_: User = Depends(get_current_user)):
 @router.get("/{case_id}", response_model=CaseDetail, summary="Case detail: evidence, signals, linked entities, notes, status history, escalations")
 def get(case_id: uuid.UUID, user: User = Depends(require_permission("case:read")), db: Session = Depends(get_db)):
     return svc.case_detail_dict(db, user, svc.get_case_for_user(db, user, case_id, detail=True))
+
+
+@router.get("/{case_id}/takedown-report", response_model=TakedownReportOut,
+            summary="Preview an evidence-backed takedown report draft for a confirmed case; does not submit it")
+def takedown_report(case_id: uuid.UUID, user: User = Depends(require_permission("case:resolve")), db: Session = Depends(get_db)):
+    return svc.takedown_report_draft(db, user, case_id)
 
 
 @router.get("/{case_id}/graph", response_model=GraphResponse,

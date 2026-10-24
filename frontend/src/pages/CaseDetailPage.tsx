@@ -49,7 +49,7 @@ import { Avatar, CopyButton, LoadingBlock, SearchInput, Tooltip } from '../compo
 import { ScoreBar, ScoreRing, severityColor } from '../components/ui/score';
 import { useToast } from '../components/ui/toast';
 import { useAuth } from '../hooks/useAuth';
-import { caseService } from '../services/caseService';
+import { caseService, type TakedownReportDraft } from '../services/caseService';
 import { entityService } from '../services/entityService';
 import { evidenceService } from '../services/evidenceService';
 import { ApiError, apiRequest } from '../services/apiClient';
@@ -1737,6 +1737,87 @@ const EscalateModal: React.FC<EscalateModalProps> = ({ open, onClose, data, onEs
 };
 
 /* ------------------------------------------------------------------ *
+ * Reopen a resolved case (server requires an explaining comment)
+ * ------------------------------------------------------------------ */
+
+interface ReopenModalProps {
+  open: boolean;
+  onClose: () => void;
+  data: CaseDetail;
+  onReopened: (updated: CaseDetail) => void;
+}
+
+const ReopenModal: React.FC<ReopenModalProps> = ({ open, onClose, data, onReopened }) => {
+  const { toast } = useToast();
+  const [comment, setComment] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setComment('');
+  }, [open]);
+
+  const submit = async () => {
+    if (comment.trim().length < 5) {
+      toast.error('A comment is required', 'Explain why the case is being reopened (min 5 characters).');
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await caseService.changeStatus(
+        data.id,
+        'under_review',
+        comment.trim(),
+        undefined,
+        undefined,
+        data.status
+      );
+      toast.success('Case reopened', 'The case is back under review and the reason was recorded.');
+      onReopened(updated);
+      onClose();
+    } catch (e) {
+      toast.error('Could not reopen', errMsg(e, 'The API rejected this reopen.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Reopen this case?"
+      description={`Moves ${data.case_number} from Resolved back to Under review and records who reopened it and why.`}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={submit} loading={saving}>
+            Reopen case
+          </Button>
+        </>
+      }
+    >
+      <Field label="Why reopen this case?" required htmlFor="reopen-comment">
+        <Textarea
+          id="reopen-comment"
+          value={comment}
+          maxLength={5000}
+          rows={4}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="e.g. New reports of the same impersonating profile since closure."
+        />
+      </Field>
+      <p className="text-xs text-muted">
+        Reopening clears the previous resolution. The decision history is kept and this comment is added to
+        the case timeline.
+      </p>
+    </Modal>
+  );
+};
+
+/* ------------------------------------------------------------------ *
  * Case detail / investigation workspace
  * ------------------------------------------------------------------ */
 
@@ -1753,6 +1834,8 @@ export const CaseDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reportDraft, setReportDraft] = useState<TakedownReportDraft | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -1783,6 +1866,45 @@ export const CaseDetailPage: React.FC = () => {
     }
   }, [id]);
 
+  const openReportDraft = async () => {
+    if (!id) return;
+    setReportLoading(true);
+    try {
+      setReportDraft(await caseService.getTakedownReport(id));
+    } catch (e) {
+      toast.error(errMsg(e, 'A report draft is available only for a confirmed case.'));
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const reportText = (draft: TakedownReportDraft) => {
+    const lines = [
+      'AnaRisk platform review request (draft)',
+      `Created: ${formatDate(draft.generated_at)}`,
+      `Case: ${draft.case_number}`,
+      `Brand: ${draft.brand.name}`,
+      '',
+      'Observed assets:',
+      ...draft.suspected_assets.flatMap((asset) => [
+        `- ${asset.type}${asset.platform ? ` on ${asset.platform}` : ''}: ${asset.name} (${asset.identifier})`,
+        ...(asset.source_url ? [`  Source URL: ${asset.source_url}`] : []),
+        ...(asset.publisher ? [`  Publisher/developer: ${asset.publisher}`] : []),
+        ...(asset.observed_at ? [`  Observed: ${formatDate(asset.observed_at)}`] : []),
+        ...(asset.assessment?.signals || []).map((signal) => `  ${signal.type} (${signal.status}${signal.value === null ? '' : `, ${signal.value.toFixed(2)}`}): ${signal.explanation}`),
+      ]),
+      ...(draft.case_evidence.length ? ['', 'Case evidence:', ...draft.case_evidence.map((ev) => `- ${ev.kind}: ${ev.title} (${ev.provenance}; ${formatDate(ev.collected_at)})${ev.source_url ? ` — ${ev.source_url}` : ''}${ev.sha256 ? ` [SHA-256 ${ev.sha256}]` : ''}`)] : []),
+      '',
+      `Analyst decision: ${draft.decision.outcome.replace(/_/g, ' ')} — ${draft.decision.reason}`,
+      `Risk score: ${draft.decision.case_risk_score === null ? 'unavailable' : `${(draft.decision.case_risk_score * 100).toFixed(0)}/100`} (${draft.decision.case_risk_band}; ${draft.decision.score_version || 'no score version'})`,
+      draft.decision.score_note,
+      '',
+      draft.requested_action,
+      draft.submission_note,
+    ];
+    return lines.join('\n');
+  };
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -1811,6 +1933,7 @@ export const CaseDetailPage: React.FC = () => {
   const [assignOpen, setAssignOpen] = useState(false);
   const [escalateOpen, setEscalateOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -1895,7 +2018,7 @@ export const CaseDetailPage: React.FC = () => {
     }
   };
 
-  const moveTo = async (to: CaseStatus) => {
+  const moveTo = async (to: CaseStatus, comment?: string) => {
     if (!data) return;
     if (to === 'resolved') {
       setResolveOpen(true);
@@ -1910,11 +2033,13 @@ export const CaseDetailPage: React.FC = () => {
       toast.info('Assign an owner first', 'A case needs an owner before it can move to Assigned.');
       return;
     }
+    // Reopening a resolved case requires an explaining comment (server-enforced).
+    if (data.status === 'resolved' && to === 'under_review' && !comment?.trim()) {
+      setReopenOpen(true);
+      return;
+    }
     try {
-      const updated = await apiRequest<CaseDetail>(`/cases/${data.id}/status`, {
-        method: 'POST',
-        body: JSON.stringify({ status: to, expected_status: data.status }),
-      });
+      const updated = await caseService.changeStatus(data.id, to, comment?.trim() || undefined, undefined, undefined, data.status);
       setData(updated);
       toast.success(`Case moved to ${statusLabel(to)}`);
     } catch (e) {
@@ -2064,6 +2189,12 @@ export const CaseDetailPage: React.FC = () => {
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {perms.resolve && data.status === 'resolved' &&
+            ['confirmed_threat_actioned', 'confirmed_threat_monitoring'].includes(data.resolution_outcome || '') && (
+              <Button variant="outline" size="sm" icon={<FileText className="h-4 w-4" />} loading={reportLoading} onClick={() => void openReportDraft()}>
+                Takedown draft
+              </Button>
+            )}
           {perms.assign && (
             <Button variant="outline" size="sm" icon={<UserPlus className="h-4 w-4" />} onClick={() => setAssignOpen(true)}>
               Assign
@@ -2322,6 +2453,36 @@ export const CaseDetailPage: React.FC = () => {
       </div>
 
       {/* modals */}
+      <Modal
+        open={!!reportDraft}
+        onClose={() => setReportDraft(null)}
+        title="Takedown report draft"
+        description="Generated from this confirmed case, saved evidence, and investigation history. Review before using; nothing is submitted."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setReportDraft(null)}>Close</Button>
+            {reportDraft && (
+              <>
+                <Button variant="outline" icon={<Copy className="h-4 w-4" />} onClick={() => {
+                  void navigator.clipboard.writeText(reportText(reportDraft)).then(() => toast.success('Draft copied')).catch(() => toast.error('Could not copy the draft'));
+                }}>Copy</Button>
+                <Button icon={<Download className="h-4 w-4" />} onClick={() => {
+                  const blob = new Blob([reportText(reportDraft)], { type: 'text/plain;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `anarisk-takedown-${reportDraft.case_number}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}>Download</Button>
+              </>
+            )}
+          </>
+        }
+      >
+        {reportDraft && <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-xl border border-line bg-bg p-4 text-xs leading-5 text-ink">{reportText(reportDraft)}</pre>}
+      </Modal>
+
       <EditDetailsModal
         open={editOpen}
         onClose={() => setEditOpen(false)}
@@ -2341,6 +2502,13 @@ export const CaseDetailPage: React.FC = () => {
         onClose={() => setEscalateOpen(false)}
         data={data}
         onEscalated={(updated) => setData(updated)}
+      />
+
+      <ReopenModal
+        open={reopenOpen}
+        onClose={() => setReopenOpen(false)}
+        data={data}
+        onReopened={(updated) => setData(updated)}
       />
 
       <AssignCaseModal

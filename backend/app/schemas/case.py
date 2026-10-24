@@ -159,3 +159,18 @@ class CaseDetail(CaseSummary):
     assignments: list[AssignmentOut]
     allowed_transitions: list[CaseStatus]
     version: int
+
+
+class TakedownReportOut(BaseModel):
+    """Evidence-backed draft only; generated from an authorized, confirmed case."""
+
+    generated_at: datetime
+    case_number: str
+    brand: dict[str, Any]
+    official_assets: list[dict[str, Any]]
+    suspected_assets: list[dict[str, Any]]
+    case_evidence: list[dict[str, Any]]
+    decision: dict[str, Any]
+    investigation_history: list[dict[str, Any]]
+    requested_action: str
+    submission_note: str = "Draft only. Review and submit through the platform's own process; AnaRisk does not contact platforms."
