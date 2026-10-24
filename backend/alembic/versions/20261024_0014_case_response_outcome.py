@@ -40,7 +40,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index("ix_cases_response_outcome", table_name="investigation_cases")
-    op.drop_constraint("ck_case_removal_evidence", "investigation_cases", type_="check")
+    op.drop_constraint(op.f("ck_case_removal_evidence"), "investigation_cases", type_="check")
     op.drop_constraint("fk_cases_response_evidence", "investigation_cases", type_="foreignkey")
     op.drop_constraint("fk_cases_response_outcome_by", "investigation_cases", type_="foreignkey")
     op.drop_column("investigation_cases", "response_evidence_id")

@@ -1,0 +1,384 @@
+{
+  "name": "round2-ranking-eval",
+  "synthetic": true,
+  "description": "Labeled Round 2 evaluation set (Phase 5). ALL items are synthetic demonstration data: categories and labels are authored ground truth, independent of the score rules; signal scores are detector-output-shaped inputs, not measurements from live platforms. A tiny synthetic set demonstrates behaviour, not production accuracy.",
+  "inventory": [
+    { "kind": "domain", "value": "acmebank.example" },
+    { "kind": "handle", "value": "@acmebank", "platform": "facebook" },
+    { "kind": "app_package", "value": "com.acmebank.mobile" }
+  ],
+  "items": [
+    {
+      "id": "official-facebook-profile",
+      "category": "official_asset",
+      "inventory_backed": true,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-01T09:00:00Z",
+      "entity": {
+        "entity_type": "social_profile",
+        "platform": "facebook",
+        "canonical_id": "facebook:acmebank",
+        "display_name": "AcmeBank",
+        "source_url": "https://facebook.com/acmebank",
+        "attributes": { "handle": "@AcmeBank" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.85, "explanation": "Logo matches the registered brand logo reference.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.6, "explanation": "Display name matches the brand name (identity overlap, not proof of abuse)." },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.2, "explanation": "No risk indicators on the platform profile URL." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.15, "explanation": "Account age and activity pattern are consistent with a verified brand presence." }
+      ]
+    },
+    {
+      "id": "official-website",
+      "category": "official_asset",
+      "inventory_backed": true,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-01T09:05:00Z",
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:acmebank.example",
+        "display_name": "AcmeBank official site",
+        "source_url": "https://www.acmebank.example/help",
+        "attributes": { "url": "https://www.acmebank.example" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.8, "explanation": "Page carries the registered brand logo.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.5, "explanation": "Site identity equals the brand name." },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.15, "explanation": "Registered domain, long-lived host, no risk feeds." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.1, "explanation": "Stable content history." }
+      ]
+    },
+    {
+      "id": "official-android-app",
+      "category": "official_asset",
+      "inventory_backed": true,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-01T09:10:00Z",
+      "entity": {
+        "entity_type": "mobile_app",
+        "platform": "google_play",
+        "canonical_id": "android:com.acmebank.mobile",
+        "display_name": "AcmeBank Mobile",
+        "source_url": "https://play.google.com/store/apps/details?id=com.acmebank.mobile",
+        "attributes": { "app_name": "AcmeBank Mobile", "package_id": "com.acmebank.mobile" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.85, "explanation": "Store icon matches the registered brand logo.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-pkg-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.55, "explanation": "Publisher display name equals the brand name." },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.25, "explanation": "Listing URL uses the registered package id." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.15, "explanation": "Release cadence matches the vendor's history." }
+      ]
+    },
+    {
+      "id": "official-tiktok-unregistered",
+      "category": "official_asset",
+      "inventory_backed": false,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-01T09:15:00Z",
+      "entity": {
+        "entity_type": "social_profile",
+        "platform": "tiktok",
+        "canonical_id": "tiktok:acmebank",
+        "display_name": "AcmeBank",
+        "source_url": "https://tiktok.com/@acmebank",
+        "attributes": { "handle": "@acmebank" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.85, "explanation": "Profile picture matches the registered brand logo.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.7, "explanation": "Handle equals the brand name; platform is not registered in the inventory." },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.2, "explanation": "No risk indicators on the platform URL." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.25, "explanation": "Account history looks organic." }
+      ],
+      "_ground_truth_note": "A REAL official account on a platform the inventory does not cover. The zero-in-queue guarantee covers verified officials only; this item documents the coverage boundary and is counted in inventory_coverage."
+    },
+    {
+      "id": "close-copy-support-profile",
+      "category": "close_copy_scam",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-10T14:00:00Z",
+      "entity": {
+        "entity_type": "social_profile",
+        "platform": "facebook",
+        "canonical_id": "facebook:acme.bank.support",
+        "display_name": "AcmeBank Support Desk",
+        "source_url": "https://facebook.com/acme.bank.support",
+        "attributes": { "handle": "@acme.bank.support" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.95, "explanation": "Avatar reuses the registered brand logo pixel-identically.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-handle-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.92, "explanation": "Handle and bio imitate official support identity without being the registered handle.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-handle-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.8, "explanation": "Posts direct users to an off-platform credential form." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.7, "explanation": "Mass friend requests and payment solicitations shortly after creation." }
+      ]
+    },
+    {
+      "id": "phish-lookalike-domain",
+      "category": "close_copy_scam",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-10T14:05:00Z",
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:acme-bank.example",
+        "display_name": "AcmeBank Secure Login",
+        "source_url": "https://login.acme-bank.example/verify",
+        "attributes": { "url": "https://login.acme-bank.example/verify" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.7, "explanation": "Login page copies the brand's logo and layout.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.85, "explanation": "Page claims to be the bank's online banking portal.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.95, "explanation": "Lookalike registrable domain, credential-harvest form, brand-new host." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.88, "explanation": "Host observed phishing the same form across multiple reports." }
+      ]
+    },
+    {
+      "id": "multilingual-homoglyph-profile",
+      "category": "multilingual",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-11T08:30:00Z",
+      "entity": {
+        "entity_type": "social_profile",
+        "platform": "x",
+        "canonical_id": "x:асмеbank",
+        "display_name": "Асме Банк (AcmeBank)",
+        "source_url": "https://x.com/асмеbank",
+        "attributes": { "handle": "@асмеbank" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.88, "explanation": "Avatar is the registered brand logo despite the Cyrillic identity text.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-handle-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.9, "explanation": "Cyrillic homoglyph handle visually equals the brand handle in Latin script.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-handle-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.75, "explanation": "Bio link redirects through a link shortener to a foreign form." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.6, "explanation": "Coordinated replies steering users to the same external form." }
+      ]
+    },
+    {
+      "id": "copycat-banking-app",
+      "category": "close_copy_scam",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-11T10:00:00Z",
+      "entity": {
+        "entity_type": "mobile_app",
+        "platform": "google_play",
+        "canonical_id": "android:com.acme.support.fake",
+        "display_name": "AcmeBank Support",
+        "source_url": "https://play.google.com/store/apps/details?id=com.acme.support.fake",
+        "attributes": { "app_name": "AcmeBank Support", "package_id": "com.acme.support.fake" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.85, "explanation": "App icon reuses the registered brand artwork.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-pkg-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.88, "explanation": "Listing title and description impersonate official bank support.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-pkg-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.6, "explanation": "App requests SMS forwarding permissions unrelated to banking." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.65, "explanation": "Zero installs with one-day age and copy-pasted reviews." }
+      ]
+    },
+    {
+      "id": "publisher-difference-app",
+      "category": "app_publisher_difference",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-11T10:30:00Z",
+      "entity": {
+        "entity_type": "mobile_app",
+        "platform": "google_play",
+        "canonical_id": "android:org.thirdparty.wallet",
+        "display_name": "AcmeBank",
+        "source_url": "https://play.google.com/store/apps/details?id=org.thirdparty.wallet",
+        "attributes": { "app_name": "AcmeBank", "package_id": "org.thirdparty.wallet" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.6, "explanation": "Store icon borrows brand colours and lettering.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-pkg-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.82, "explanation": "Identical display name to the bank under an unrelated third-party publisher package.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-pkg-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.55, "explanation": "Listing links to an unaffiliated support Telegram channel." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.5, "explanation": "Publisher account is three days old with two other copycat listings." }
+      ],
+      "_ground_truth_note": "Same display name, different publisher and package: must NOT be excluded as official (exclusion only ever matches registered identity) and must be scored as a threat."
+    },
+    {
+      "id": "fan-parody-profile",
+      "category": "fan_parody",
+      "inventory_backed": null,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-12T11:00:00Z",
+      "entity": {
+        "entity_type": "social_profile",
+        "platform": "instagram",
+        "canonical_id": "instagram:acmebank.fan.parody",
+        "display_name": "acmebank.fan.parody",
+        "attributes": { "handle": "@acmebank.fan.parody" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.55, "explanation": "Uses brand imagery with an added parody badge.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-handle-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.6, "explanation": "Name contains the brand but the bio declares 'unofficial fan account'." , "evidence_refs": [{ "type": "brand_reference", "id": "inv-handle-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.35, "explanation": "Links only to fan art and a personal blog." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.4, "explanation": "Steady organic posting; no solicitation observed." }
+      ],
+      "_ground_truth_note": "No source_url observed (discovered via search API) - exercises the source_identity completeness gap."
+    },
+    {
+      "id": "harmless-wiki-lookalike",
+      "category": "harmless_lookalike",
+      "inventory_backed": null,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-12T12:00:00Z",
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:acmebank-news.example",
+        "display_name": "AcmeBank news wiki",
+        "source_url": "https://en.acmebank-news.example/wiki",
+        "attributes": { "url": "https://en.acmebank-news.example/wiki" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.45, "explanation": "Brand logo appears once as an illustration in an article.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.4, "explanation": "Domain label contains the brand name but the site is a community wiki.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.3, "explanation": "No risk feed hits; no credential forms." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.35, "explanation": "Years of editorial history and no monetisation pressure." }
+      ]
+    },
+    {
+      "id": "harmless-whois-tool",
+      "category": "harmless_lookalike",
+      "inventory_backed": null,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": null,
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:whoislookup.example",
+        "display_name": "WHOIS lookup for acmebank",
+        "source_url": "https://whoislookup.example/d/acmebank",
+        "attributes": { "url": "https://whoislookup.example/d/acmebank" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.5, "explanation": "Brand favicon appears in the whois result header.", "evidence_refs": [{ "type": "evidence", "id": "ev-whois-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.45, "explanation": "Page text mentions the brand because it reports on its domain.", "evidence_refs": [{ "type": "evidence", "id": "ev-whois-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.25, "explanation": "Generic utility site, no risk indicators." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.3, "explanation": "No solicitation or redirect behaviour." }
+      ],
+      "_ground_truth_note": "observed_at is null (no collection timestamp) and evidence cites no brand_reference - exercises the timestamps + official_comparison completeness gaps."
+    },
+    {
+      "id": "missing-evidence-threat",
+      "category": "missing_evidence",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-13T07:00:00Z",
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:secure-login.example",
+        "display_name": "AcmeBank password reset",
+        "source_url": "https://acme-bank.secure-login.example/reset",
+        "attributes": { "url": "https://acme-bank.secure-login.example/reset" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "unavailable", "score": null, "explanation": "Screenshot could not be fetched from the feed." },
+        { "signal_type": "impersonation", "status": "unavailable", "score": null, "explanation": "No page text captured for comparison." },
+        { "signal_type": "url_risk", "status": "unavailable", "score": null, "explanation": "Risk feeds returned no data for this host." },
+        { "signal_type": "behavior", "status": "unavailable", "score": null, "explanation": "No observation window yet." }
+      ],
+      "_ground_truth_note": "A real threat (authored label 1) the system has NO signal data for: it must stay unscored (unknown, never silently safe) and its absence must be visible as lost recall, not a pass."
+    },
+    {
+      "id": "partial-coverage-threat",
+      "category": "missing_evidence",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-13T07:30:00Z",
+      "entity": {
+        "entity_type": "social_profile",
+        "platform": "facebook",
+        "canonical_id": "facebook:acme.bank.helpdesk",
+        "display_name": "AcmeBank Helpdesk",
+        "source_url": "https://facebook.com/acme.bank.helpdesk",
+        "attributes": { "handle": "@acme.bank.helpdesk" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.9, "explanation": "Avatar is a pixel-copy of the registered brand logo.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-handle-1" }] },
+        { "signal_type": "impersonation", "status": "unavailable", "score": null, "explanation": "Bio text capture failed for this observation." },
+        { "signal_type": "url_risk", "status": "unavailable", "score": null, "explanation": "Link targets could not be resolved." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.55, "explanation": "Coordinated messaging pattern observed over 48 hours.", "evidence_refs": [{ "type": "evidence", "id": "ev-beh-1" }] }
+      ],
+      "_ground_truth_note": "Coverage 0.45 < floor 0.60: score must still be computed (weights renormalised) and flagged provisional, never zeroed."
+    },
+    {
+      "id": "close-copy-mirror-site",
+      "category": "close_copy_scam",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-14T09:00:00Z",
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:acmebank-secure.example",
+        "display_name": "AcmeBank online banking",
+        "source_url": "https://acmebank-secure.example/login",
+        "attributes": { "url": "https://acmebank-secure.example/login" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.82, "explanation": "Full brand visual identity reproduced on the login page.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.86, "explanation": "Page claims to be the bank login and mirrors official copy.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.92, "explanation": "Lookalike domain, credential form, freshly registered host." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.75, "explanation": "Host shares infrastructure with other confirmed lures." }
+      ]
+    },
+    {
+      "id": "fan-merch-shop",
+      "category": "fan_parody",
+      "inventory_backed": null,
+      "label": 0,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-14T10:00:00Z",
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:acmebank-merch.example",
+        "display_name": "AcmeBank fan merch",
+        "source_url": "https://acmebank-merch.example/shop",
+        "attributes": { "url": "https://acmebank-merch.example/shop" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.5, "explanation": "Product photos print the brand logo on unofficial merchandise.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.55, "explanation": "Store name includes the brand while disclaiming affiliation in the footer.", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.45, "explanation": "Checkout uses a standard payment processor, no form scraping." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.4, "explanation": "Years of sales history with ordinary customer traffic." }
+      ]
+    },
+    {
+      "id": "duplicate-phish-observation",
+      "category": "duplicate_observation",
+      "inventory_backed": null,
+      "label": 1,
+      "provenance": "synthetic",
+      "observed_at": "2026-10-15T14:00:00Z",
+      "entity": {
+        "entity_type": "website",
+        "canonical_id": "domain:acme-bank.example",
+        "display_name": "AcmeBank Secure Login (re-observed)",
+        "source_url": "http://login.acme-bank.example/verify",
+        "attributes": { "url": "http://login.acme-bank.example/verify" }
+      },
+      "signals": [
+        { "signal_type": "brand_logo", "status": "ok", "score": 0.6, "explanation": "Second screenshot of the same login page (compression differs).", "evidence_refs": [{ "type": "brand_reference", "id": "inv-domain-1" }] },
+        { "signal_type": "impersonation", "status": "ok", "score": 0.75, "explanation": "Same impersonating copy as the first observation." },
+        { "signal_type": "url_risk", "status": "ok", "score": 0.9, "explanation": "Same lookalike host, fewer corroborating signals this time." },
+        { "signal_type": "behavior", "status": "ok", "score": 0.8, "explanation": "Same infrastructure hits as the original observation." }
+      ],
+      "_ground_truth_note": "Stable identity domain:acme-bank.example matches phish-lookalike-domain: repeated observations must collapse to ONE queue entry (idempotent ingestion), never two cases."
+    }
+  ]
+}

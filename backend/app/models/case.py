@@ -16,6 +16,7 @@ class InvestigationCase(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_cases_brand_status", "brand_id", "status"),
         Index("ix_cases_assignee", "assigned_to_id"),
+        Index("ix_cases_response_outcome", "response_outcome"),
         CheckConstraint("risk_score IS NULL OR (risk_score >= 0 AND risk_score <= 1)", name="risk_range"),
         CheckConstraint("confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", name="confidence_range"),
         CheckConstraint(
