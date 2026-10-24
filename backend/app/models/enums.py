@@ -104,6 +104,15 @@ class ResolutionOutcome(str, enum.Enum):
     DUPLICATE = "duplicate"
 
 
+class ResponseOutcome(str, enum.Enum):
+    """Round 2 §7: response to a confirmed threat, tracked separately from the analytical disposition."""
+
+    NO_ACTION = "no_action"
+    REPORT_DRAFTED = "report_drafted"
+    REPORT_SUBMITTED = "report_submitted"
+    REMOVAL_OBSERVED = "removal_observed"  # only settable with verification evidence
+
+
 class CaseEventType(str, enum.Enum):
     CREATED = "created"
     STATUS_CHANGED = "status_changed"
@@ -115,6 +124,7 @@ class CaseEventType(str, enum.Enum):
     REOPENED = "reopened"
     ENTITY_ADDED = "entity_added"
     ENTITY_REMOVED = "entity_removed"
+    RESPONSE_RECORDED = "response_recorded"
 
 
 class FeedbackCategory(str, enum.Enum):

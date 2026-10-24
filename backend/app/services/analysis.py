@@ -180,10 +180,13 @@ def to_detection_item(assessment: RiskAssessment, entity: DigitalEntity) -> Dete
     # detection type = highest effective weight signal that actually produced a score, else the highest-weight family overall
     scored = [s for s in signals if s.status == SignalStatus.OK and s.score is not None]
     primary = max(scored or signals, key=lambda s: (eff.get(s.signal_type.value, 0.0), s.score or 0.0), default=None)
+    # Round 2 §2: which official asset this was measured against (top reference match from a logo/impersonation signal)
+    matched_official = _matched_official_asset(signals)
     return DetectionItem(
         id=assessment.id,
         entity=DetectionEntityRef(id=entity.id, display_name=entity.display_name, entity_type=entity.entity_type.value,
-                                  canonical_id=entity.canonical_id, platform=entity.platform, provenance=entity.provenance.value),
+                                  canonical_id=entity.canonical_id, platform=entity.platform, provenance=entity.provenance.value,
+                                  source_url=entity.source_url, first_seen_at=entity.first_seen_at, last_seen_at=entity.last_seen_at),
         detection_type=SIGNAL_LABELS.get(primary.signal_type, primary.signal_type.value) if primary else "No signal available",
         signal_type=primary.signal_type if primary else None,
         risk_score=assessment.risk_score,
@@ -192,9 +195,43 @@ def to_detection_item(assessment: RiskAssessment, entity: DigitalEntity) -> Dete
         status=_detection_status(signals),
         explanation=primary.explanation if primary else (assessment.notes or ""),
         signals_summary=[SignalSummary(signal_type=s.signal_type, status=s.status, score=s.score) for s in signals],
+        matched_official_asset_id=matched_official,
         assessed_at=assessment.assessed_at,
         is_synthetic=assessment.is_synthetic,
     )
+
+
+def _matched_official_asset(signals) -> uuid.UUID | None:
+    """The official reference id of the strongest reference-backed match, for the detection's 'imitates' column."""
+    best_id: str | None = None
+    best_rank = -1.0  # higher = better; distance-based matches are inverted
+    for s in signals:
+        if s.status != SignalStatus.OK or not s.score:
+            continue
+        meta = s.meta or {}
+        matches = meta.get("matches") or meta.get("top_matches") or []
+        for m in matches:
+            if not isinstance(m, dict):
+                continue
+            ref_id = m.get("reference_id")
+            if not ref_id:
+                continue
+            if "similarity" in m:  # impersonation: higher is better
+                rank = m.get("similarity") or 0.0
+            elif "score" in m:
+                rank = m.get("score") or 0.0
+            elif "distance" in m:  # perceptual-hash logo match: lower distance is better
+                rank = 1.0 - (m.get("distance") or 0) / 64.0
+            else:
+                rank = 0.0
+            if rank > best_rank:
+                best_rank, best_id = rank, ref_id
+    # detectors store reference_id as str(r.id) in the JSON meta; coerce for the typed field.
+    # A malformed id must not break the whole feed, so treat it as absent.
+    try:
+        return uuid.UUID(best_id) if best_id else None
+    except (ValueError, AttributeError, TypeError):
+        return None
 
 
 def list_detections(

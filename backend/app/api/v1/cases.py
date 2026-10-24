@@ -10,7 +10,7 @@ from app.models import User
 from app.models.enums import CaseStatus, Severity
 from app.schemas.case import (
     AssignmentOut, CaseAssign, CaseCreate, CaseDetail, CaseEntityLink, CasePatch, CaseStatusUpdate, CaseSummary, EscalateRequest, NoteCreate, NoteOut,
-    ResolveRequest, TakedownReportOut,
+    ResolveRequest, ResponseOutcomeUpdate, TakedownReportOut,
 )
 from app.schemas.common import Page
 from app.schemas.graph import GraphResponse
@@ -103,6 +103,12 @@ def escalate(case_id: uuid.UUID, body: EscalateRequest, user: User = Depends(get
 @router.post("/{case_id}/resolve", response_model=CaseDetail, summary="Resolve with an outcome and summary")
 def resolve(case_id: uuid.UUID, body: ResolveRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return _detail(db, user, svc.resolve(db, user, case_id, body))
+
+
+@router.post("/{case_id}/response-outcome", response_model=CaseDetail,
+             summary="Record the operational response (no action / report drafted / report submitted / removal observed). Removal requires verification evidence.")
+def set_response_outcome(case_id: uuid.UUID, body: ResponseOutcomeUpdate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return _detail(db, user, svc.set_response_outcome(db, user, case_id, body))
 
 
 @router.post("/{case_id}/entities", response_model=CaseDetail, summary="Link more entities to an open case")

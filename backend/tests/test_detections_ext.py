@@ -20,6 +20,33 @@ def _setup(f, w):
     return e1, e2
 
 
+def test_detection_record_and_reference_verification(world, f):
+    """Round 2 §2: the detection record carries the full observation window + the official asset it
+    imitates, and every official reference records who verified it and when."""
+    e1, e2 = _setup(f, world)
+    h = world.h["inv"]
+    items = f.client.get("/api/v1/detections", headers=h).json()["items"]
+    item = next(x for x in items if x["entity"]["id"] == e1["id"])
+    site = next(x for x in items if x["entity"]["id"] == e2["id"])
+
+    # the observation window and where it was seen are exposed on the entity ref
+    ent = item["entity"]
+    assert ent["first_seen_at"] and ent["last_seen_at"]
+    assert ent["first_seen_at"] <= ent["last_seen_at"]
+    assert ent["source_url"] is None          # profile entities have no source url
+    assert site["entity"]["source_url"] == "https://acmebank-secure-login.top/verify"
+
+    # the detection names a real official asset it was measured against
+    matched = item["matched_official_asset_id"]
+    assert matched is not None and isinstance(matched, str)
+    refs = f.client.get(f"/api/v1/brands/{world.brand['id']}", headers=world.h["owner"]).json()["references"]
+    assert matched in {r["id"] for r in refs}
+
+    # every official reference records who verified it and when
+    for r in refs:
+        assert r["verified_at"] is not None and r["verified_by"] is not None
+
+
 def test_model_endpoint_documents_actual_rules(world, f):
     r = f.client.get("/api/v1/detection/model", headers=world.h["inv"])
     assert r.status_code == 200, r.text

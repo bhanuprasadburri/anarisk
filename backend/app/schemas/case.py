@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import CaseEventType, CaseStatus, PartnerType, ResolutionOutcome, Severity
+from app.models.enums import CaseEventType, CaseStatus, PartnerType, ResolutionOutcome, ResponseOutcome, Severity
 from app.schemas.common import ORM
 from app.schemas.detection import AssessmentOut
 from app.schemas.entity import EntityOut
@@ -54,6 +54,19 @@ class EscalateRequest(BaseModel):
 class ResolveRequest(BaseModel):
     outcome: ResolutionOutcome
     summary: str = Field(min_length=5, max_length=10000)
+
+
+class ResponseOutcomeUpdate(BaseModel):
+    """Round 2 §7: record what was done about the threat (separate from the analytical disposition).
+
+    'removal_observed' requires evidence_id pointing at proof the asset is gone; the API rejects it otherwise.
+    """
+
+    response_outcome: ResponseOutcome
+    evidence_id: uuid.UUID | None = Field(
+        None, description="Verification evidence; required when response_outcome='removal_observed'"
+    )
+    note: str | None = Field(None, max_length=2000)
 
 
 class CaseEntityLink(BaseModel):
@@ -150,6 +163,10 @@ class CaseDetail(CaseSummary):
     resolution_outcome: ResolutionOutcome | None
     resolution_summary: str | None
     resolved_by: UserRef | None = None
+    response_outcome: ResponseOutcome | None = None
+    response_outcome_at: datetime | None = None
+    response_outcome_by: UserRef | None = None
+    response_evidence_id: uuid.UUID | None = None
     created_by: UserRef | None = None
     entities: list[CaseEntityDetail]
     evidence: list[CaseEvidenceOut] = []

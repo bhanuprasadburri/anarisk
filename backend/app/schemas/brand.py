@@ -29,6 +29,9 @@ class ReferenceCreate(BaseModel):
     platform: str | None = Field(None, max_length=64)
     note: str | None = Field(None, max_length=500)
     provenance: Provenance = Provenance.MANUAL
+    verification_source: str | None = Field(
+        None, max_length=500, description="How this official asset was verified, e.g. 'brand-owned domain'"
+    )
 
     @model_validator(mode="after")
     def _check(self):
@@ -49,6 +52,9 @@ class ReferenceOut(ORM):
     sha256: str | None
     note: str | None
     provenance: Provenance
+    verified_by: uuid.UUID | None = None
+    verified_at: datetime | None = None
+    verification_source: str | None = None
     created_at: datetime
 
 

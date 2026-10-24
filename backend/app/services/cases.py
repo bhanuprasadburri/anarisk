@@ -24,9 +24,9 @@ from app.core.permissions import has_permission
 from app.models import (
     CaseAssignment, CaseEntity, CaseEscalation, CaseEvent, CaseNote, DigitalEntity, EvidenceRecord, InvestigationCase, User,
 )
-from app.models.enums import CaseEventType, CaseStatus, Severity, UserRole
+from app.models.enums import CaseEventType, CaseStatus, ResponseOutcome, Severity, UserRole
 from app.repositories.access import brand_scope, can_access_brand, get_brand_for_user, get_entity_for_user, is_admin
-from app.schemas.case import CaseCreate, CaseStatusUpdate, EscalateRequest, ResolveRequest
+from app.schemas.case import CaseCreate, CaseStatusUpdate, EscalateRequest, ResolveRequest, ResponseOutcomeUpdate
 from app.services import audit, case_notify
 from app.services.analysis import latest_assessment
 from app.services.scoring import severity_for
@@ -224,6 +224,46 @@ def resolve(db: Session, actor: User, case_id: uuid.UUID, data: ResolveRequest) 
     return change_status(db, actor, case_id, CaseStatusUpdate(status=CaseStatus.RESOLVED, resolution_outcome=data.outcome, resolution_summary=data.summary))
 
 
+def set_response_outcome(db: Session, actor: User, case_id: uuid.UUID, data: ResponseOutcomeUpdate) -> InvestigationCase:
+    """Round 2 §7: record the operational response to a case, separate from its analytical disposition.
+
+    'removal_observed' requires evidence_id pointing at proof the asset is gone (a real, in-scope
+    EvidenceRecord for this case's brand); the DB check constraint enforces the same rule.
+    """
+    _require(actor, "case:resolve")  # recording an outbound action is a disposition-level action
+    case = get_case_for_user(db, actor, case_id, lock=True)
+
+    if data.response_outcome == ResponseOutcome.REMOVAL_OBSERVED:
+        if data.evidence_id is None:
+            raise ValidationFailure("evidence_id is required to record 'removal_observed': it must point at proof the asset is gone")
+        evidence = db.get(EvidenceRecord, data.evidence_id)
+        if evidence is None:
+            raise ValidationFailure("evidence_id does not reference an existing evidence record")
+        if evidence.brand_id != case.brand_id:
+            raise ValidationFailure("evidence_id references evidence from a different brand")
+
+    case.response_outcome = data.response_outcome
+    case.response_outcome_at = datetime.now(UTC)
+    case.response_outcome_by_id = actor.id
+    case.response_evidence_id = data.evidence_id
+    # Recorded in details only: from_status/to_status are reserved for workflow status changes.
+    # The canonical response state lives on the case row; this event is the audit trail entry.
+    ev_note = f"Response recorded: {data.response_outcome.value.replace('_', ' ')}"
+    if data.note:
+        ev_note = f"{ev_note} — {data.note}"
+    _event(db, case, actor, CaseEventType.RESPONSE_RECORDED,
+           details={"response_outcome": data.response_outcome.value,
+                    "evidence_id": str(data.evidence_id) if data.evidence_id else None,
+                    "note": ev_note})
+    _touch(case)
+    audit.record(db, actor, "case.response_outcome", "case", case.id,
+                 details={"response_outcome": data.response_outcome.value,
+                          "evidence_id": str(data.evidence_id) if data.evidence_id else None},
+                 organization_id=case.brand.organization_id)
+    db.commit()
+    return get_case_for_user(db, actor, case.id)
+
+
 # ---------- assignment ----------
 def assign(db: Session, actor: User, case_id: uuid.UUID, assignee_id: uuid.UUID, note: str | None) -> InvestigationCase:
     _require(actor, "case:assign")
@@ -415,6 +455,7 @@ def case_detail_dict(db: Session, actor: User, case: InvestigationCase) -> dict:
     if case.risk_assessment_id:
         from app.models import RiskAssessment
         ra = db.scalar(select(RiskAssessment).where(RiskAssessment.id == case.risk_assessment_id).options(selectinload(RiskAssessment.signals)))
+    response_by = db.get(User, case.response_outcome_by_id) if case.response_outcome_by_id else None
     case_evidence = []
     from app.models import CaseEvidenceLink
     from app.schemas.case import CaseEvidenceOut
@@ -427,6 +468,8 @@ def case_detail_dict(db: Session, actor: User, case: InvestigationCase) -> dict:
         "created_at": case.created_at, "updated_at": case.updated_at, "resolved_at": case.resolved_at, "summary": case.summary, "cluster_key": case.cluster_key,
         "risk_assessment": ra, "escalated_at": case.escalated_at, "escalation_summary": case.escalation_summary, "resolution_outcome": case.resolution_outcome,
         "resolution_summary": case.resolution_summary, "resolved_by": case.resolved_by, "created_by": case.created_by, "entities": ents,
+        "response_outcome": case.response_outcome, "response_outcome_at": case.response_outcome_at,
+        "response_outcome_by": response_by, "response_evidence_id": case.response_evidence_id,
         "evidence": case_evidence, "notes": case.notes, "platforms": list(case.platforms or []),
         "events": case.events, "escalations": case.escalations, "assignments": case.assignments, "allowed_transitions": allowed_transitions(case, actor), "version": case.version,
     }, from_attributes=True)

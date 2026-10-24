@@ -130,6 +130,7 @@ const EVENT_META: Record<string, { label: string; dot: string }> = {
   reopened: { label: 'Case reopened', dot: 'bg-warning' },
   entity_added: { label: 'Entity linked', dot: 'bg-info' },
   entity_removed: { label: 'Entity unlinked', dot: 'bg-faint' },
+  response_recorded: { label: 'Response recorded', dot: 'bg-success' },
 };
 
 const ENTITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {

@@ -17,6 +17,10 @@ class DetectionEntityRef(BaseModel):
     canonical_id: str
     platform: str | None = None
     provenance: str
+    # Round 2 §2 "complete detection record": observation window + where it was seen
+    source_url: str | None = None
+    first_seen_at: datetime | None = None
+    last_seen_at: datetime | None = None
 
 
 class SignalOut(ORM):
@@ -99,6 +103,8 @@ class DetectionItem(BaseModel):
     status: str  # analyzed | partial | unavailable (derived from signal availability)
     explanation: str = ""
     signals_summary: list[SignalSummary] = []
+    # Round 2 §2: the official asset this detection was measured against (from the top logo/impersonation match)
+    matched_official_asset_id: uuid.UUID | None = None
     assessed_at: datetime
     is_synthetic: bool
 

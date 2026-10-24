@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError, ValidationFailure
 from app.models import Brand, BrandReference, DigitalEntity, Organization, User
+from app.models.base import utcnow
 from app.models.enums import Provenance, ReferenceKind
 from app.repositories.access import brand_scope, get_brand_for_user, is_admin
 from app.schemas.brand import BrandCreate, BrandUpdate, ReferenceCreate
@@ -78,6 +79,7 @@ def add_reference(db: Session, actor: User, brand_id: uuid.UUID, data: Reference
         brand_id=brand.id, kind=data.kind, value=data.value.strip(), normalized_value=normalize_reference(data.kind, data.value),
         platform=data.platform, note=data.note, provenance=data.provenance,
         perceptual_hash=data.value.lower() if data.kind == ReferenceKind.IMAGE else None,
+        verified_by=actor.id, verified_at=utcnow(), verification_source=data.verification_source,
     )
     return _save_reference(db, actor, brand, ref)
 
@@ -93,6 +95,7 @@ def add_image_reference(db: Session, actor: User, brand_id: uuid.UUID, data: byt
     ref = BrandReference(
         brand_id=brand.id, kind=ReferenceKind.IMAGE, value=phash, normalized_value=phash, perceptual_hash=phash, sha256=sha,
         file_path=str(rel), note=note, provenance=provenance,
+        verified_by=actor.id, verified_at=utcnow(), verification_source=None,
     )
     return _save_reference(db, actor, brand, ref)
 

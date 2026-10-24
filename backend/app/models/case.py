@@ -8,7 +8,7 @@ from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, Integer, Strin
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, enum_col, tz_col, uuid_pk, utcnow
-from app.models.enums import CaseEventType, CaseStatus, PartnerType, ResolutionOutcome, Severity
+from app.models.enums import CaseEventType, CaseStatus, PartnerType, ResolutionOutcome, ResponseOutcome, Severity
 
 
 class InvestigationCase(TimestampMixin, Base):
@@ -18,6 +18,10 @@ class InvestigationCase(TimestampMixin, Base):
         Index("ix_cases_assignee", "assigned_to_id"),
         CheckConstraint("risk_score IS NULL OR (risk_score >= 0 AND risk_score <= 1)", name="risk_range"),
         CheckConstraint("confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", name="confidence_range"),
+        CheckConstraint(
+            "response_outcome <> 'removal_observed' OR response_evidence_id IS NOT NULL",
+            name="ck_case_removal_evidence",
+        ),
         UniqueConstraint("created_by_id", "idempotency_key", name="uq_cases_creator_idempotency"),
     )
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -40,6 +44,14 @@ class InvestigationCase(TimestampMixin, Base):
     resolution_summary: Mapped[str | None] = mapped_column(Text)
     resolved_at: Mapped[datetime | None] = tz_col()
     resolved_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # Round 2 §7: the operational response to a threat, tracked separately from the analytical disposition.
+    # "removal_observed" is only valid with verification evidence (enforced by _ck_case_removal_evidence + service check).
+    response_outcome: Mapped[ResponseOutcome | None] = mapped_column(enum_col(ResponseOutcome, "response_outcome"))
+    response_outcome_at: Mapped[datetime | None] = tz_col()
+    response_outcome_by_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    response_evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("evidence_records.id", ondelete="SET NULL")
+    )  # proof of removal (required when response_outcome == removal_observed)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     # Platforms this case spans (values validated against PLATFORM_LABELS keys at the API layer)
     platforms: Mapped[list[Any]] = mapped_column(default=list, nullable=False, server_default=text("'[]'"))

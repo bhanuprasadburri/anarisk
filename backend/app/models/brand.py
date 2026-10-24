@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, ForeignKey, Index, String, Text, UniqueConstraint
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin, enum_col, uuid_pk
+from app.models.base import Base, TimestampMixin, enum_col, tz_col, uuid_pk
 from app.models.enums import Provenance, ReferenceKind, SourceKind
 from app.models.user import Organization
 
@@ -50,6 +52,16 @@ class BrandReference(TimestampMixin, Base):
     provenance: Mapped[Provenance] = mapped_column(
         enum_col(Provenance, "provenance"), default=Provenance.MANUAL, nullable=False
     )
+    # Official-asset verification (Round 2 §2: "Record who verified an official asset and when").
+    # Set automatically on registration; optionally confirmed later by a human reviewer. Nullable so
+    # pre-existing rows (and connector/system assets with no human verifier) stay valid.
+    verified_by: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )  # the user who registered/verified this asset (None for connector/system rows)
+    verified_at: Mapped[datetime | None] = tz_col(nullable=True)
+    verification_source: Mapped[str | None] = mapped_column(
+        Text
+    )  # how it was verified, e.g. "brand-owned domain", "official app-store listing", human note
 
     brand: Mapped[Brand] = relationship(back_populates="references")
 

@@ -33,6 +33,67 @@ def to_under_review(client, c, cid):
     assert status(client, c, cid, "under_review").status_code == 200
 
 
+def test_response_outcome_requires_permission_and_removal_needs_evidence(client, ctx):
+    cid = mk(client, ctx)["id"]
+    url = f"/api/v1/cases/{cid}/response-outcome"
+
+    # removal_observed without evidence_id -> 422 (the rule this feature exists to enforce)
+    r = client.post(url, headers=ctx.h, json={"response_outcome": "removal_observed"})
+    assert r.status_code == 422, r.text
+
+    # unknown evidence_id -> 422 (must reference a real record)
+    r = client.post(url, headers=ctx.h, json={"response_outcome": "removal_observed",
+                                              "evidence_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 422
+
+    # brand_owner lacks case:resolve -> 403
+    r = client.post(url, headers=ctx.w.h["owner"], json={"response_outcome": "no_action"})
+    assert r.status_code == 403
+
+    # unauthenticated -> 401
+    assert client.post(url, json={"response_outcome": "no_action"}).status_code == 401
+
+
+def test_response_outcome_persists_and_writes_timeline_event(client, ctx):
+    cid = mk(client, ctx)["id"]
+    url = f"/api/v1/cases/{cid}/response-outcome"
+
+    # a non-removal outcome needs no evidence
+    ok = client.post(url, headers=ctx.h, json={"response_outcome": "report_submitted", "note": "sent to platform"})
+    assert ok.status_code == 200, ok.text
+    d = ok.json()
+    assert d["response_outcome"] == "report_submitted"
+    assert d["response_evidence_id"] is None
+    assert d["response_outcome_by"]["email"] == ctx.w.users["inv"].email
+    assert d["response_outcome_at"] is not None
+
+    # recorded on the case timeline without abusing the status columns
+    ev = [e for e in d["events"] if e["event_type"] == "response_recorded"]
+    assert len(ev) == 1
+    assert ev[0]["from_status"] is None and ev[0]["to_status"] is None
+    assert "report submitted" in ev[0]["details"]["note"]
+    assert ev[0]["details"]["response_outcome"] == "report_submitted"
+
+    # an audited row was written
+    audit = client.get("/api/v1/audit", params={"action": "case.response_outcome"}, headers=ctx.h).json()
+    assert audit["total"] >= 1 and audit["items"][0]["resource_id"] == cid
+
+    # removal_observed with real, same-brand evidence -> 200
+    ev_post = client.post("/api/v1/evidence", headers=ctx.h,
+                          json={"entity_id": ctx.e1["id"], "kind": "text",
+                                "title": "Platform takedown confirmation",
+                                "text_content": "asset delisted at 12:04 UTC"})
+    assert ev_post.status_code == 201, ev_post.text
+    evid = ev_post.json()["id"]
+    r = client.post(url, headers=ctx.h, json={"response_outcome": "removal_observed", "evidence_id": evid})
+    assert r.status_code == 200, r.text
+    assert r.json()["response_outcome"] == "removal_observed"
+    assert r.json()["response_evidence_id"] == evid
+
+    # response outcome is tracked independently of the analytical disposition
+    assert r.json()["resolution_outcome"] is None and r.json()["status"] == "detected"
+
+
 def test_create_case_rollup_and_detail(client, ctx):
     case = mk(client, ctx)
     assert case["status"] == "detected" and case["case_number"].startswith("NN-2026-") and case["entity_count"] == 2
