@@ -96,6 +96,16 @@ export const caseService = {
     });
   },
 
+  async setResponseOutcome(
+    caseId: string,
+    payload: { response_outcome: string; evidence_id?: string; note?: string }
+  ): Promise<InvestigationCase> {
+    return apiRequest<InvestigationCase>(`/cases/${caseId}/response-outcome`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
   async assign(
     caseId: string,
     assignee_id: string,

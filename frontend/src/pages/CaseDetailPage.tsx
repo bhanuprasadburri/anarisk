@@ -32,6 +32,7 @@ import {
   Network,
   Pencil,
   Plus,
+  ShieldCheck,
   Smartphone,
   Trash2,
   Upload,
@@ -61,6 +62,7 @@ import {
   PLATFORM_LABELS,
   RELATIONSHIP_COLORS,
   RELATIONSHIP_LABELS,
+  RESPONSE_OUTCOME_LABELS,
   RESOLUTION_OUTCOME_LABELS,
   SEVERITY_LABELS,
   VERIFICATION_LABELS,
@@ -73,6 +75,7 @@ import {
   DigitalEntity,
   InvestigationCase,
   ResolutionOutcome,
+  ResponseOutcome,
 } from '../types';
 
 /* ------------------------------------------------------------------ *
@@ -1286,6 +1289,18 @@ const OverviewTab: React.FC<{
                 </dd>
               </div>
             )}
+            {data.response_outcome && (
+              <div className="flex justify-between py-1 sm:col-span-2">
+                <dt className="text-faint">Response</dt>
+                <dd className="font-medium text-info">
+                  {RESPONSE_OUTCOME_LABELS[data.response_outcome] || data.response_outcome}
+                  {data.response_outcome_by
+                    ? ` — ${data.response_outcome_by.full_name || data.response_outcome_by.email}`
+                    : ''}
+                  {data.response_outcome_at ? ` · ${formatDate(data.response_outcome_at)}` : ''}
+                </dd>
+              </div>
+            )}
             {data.escalation_summary && (
               <div className="flex justify-between py-1 sm:col-span-2">
                 <dt className="text-faint">Escalation</dt>
@@ -1819,6 +1834,129 @@ const ReopenModal: React.FC<ReopenModalProps> = ({ open, onClose, data, onReopen
 };
 
 /* ------------------------------------------------------------------ *
+ * Record the operational response to a threat (Round 2 §7).
+ * Kept separate from the analytical disposition: "Removal observed"
+ * requires evidence that the asset is actually gone (server-enforced).
+ * ------------------------------------------------------------------ */
+
+interface ResponseOutcomeModalProps {
+  open: boolean;
+  onClose: () => void;
+  data: CaseDetail;
+  onRecorded: (updated: CaseDetail) => void;
+}
+
+const ResponseOutcomeModal: React.FC<ResponseOutcomeModalProps> = ({ open, onClose, data, onRecorded }) => {
+  const { toast } = useToast();
+  const [outcome, setOutcome] = useState<ResponseOutcome>('no_action');
+  const [note, setNote] = useState('');
+  const [evidenceId, setEvidenceId] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setOutcome(data.response_outcome ?? 'no_action');
+    setNote('');
+    setEvidenceId(data.response_evidence_id ?? '');
+  }, [open, data.response_outcome, data.response_evidence_id]);
+
+  const evidenceOptions = data.evidence ?? [];
+  const needsEvidence = outcome === 'removal_observed';
+
+  const submit = async () => {
+    if (needsEvidence && !evidenceId) {
+      toast.error(
+        'Verification evidence is required',
+        'Removal can only be recorded with evidence that the asset is gone. Pick one below or add evidence to the case first.'
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await caseService.setResponseOutcome(data.id, {
+        response_outcome: outcome,
+        evidence_id: needsEvidence ? evidenceId : undefined,
+        note: note.trim() || undefined,
+      });
+      toast.success('Response recorded', 'The outcome was added to the case timeline.');
+      onRecorded(updated);
+      onClose();
+    } catch (e) {
+      toast.error('Could not record the response', errMsg(e, 'The API rejected this response outcome.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Record response outcome"
+      description={`What was done about the threat on ${data.case_number}. Tracked separately from the analytical disposition.`}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={submit} loading={saving}>
+            Record outcome
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Response" required htmlFor="response-outcome">
+          <Select
+            id="response-outcome"
+            value={outcome}
+            onChange={(e) => setOutcome(e.target.value as ResponseOutcome)}
+          >
+            {Object.entries(RESPONSE_OUTCOME_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {needsEvidence && (
+          <Field
+            label="Removal evidence"
+            required
+            htmlFor="response-evidence"
+            hint={
+              evidenceOptions.length
+                ? 'Evidence linked to this case; the API requires it for "Removal observed".'
+                : 'No evidence is linked to this case yet — add evidence first, then record the removal.'
+            }
+          >
+            <Select id="response-evidence" value={evidenceId} onChange={(e) => setEvidenceId(e.target.value)}>
+              <option value="">Choose evidence…</option>
+              {evidenceOptions.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.title || ev.id}
+                  {ev.entity?.display_name ? ` — ${ev.entity.display_name}` : ''}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        <Field label="Note (optional)" htmlFor="response-note">
+          <Textarea
+            id="response-note"
+            value={note}
+            maxLength={2000}
+            rows={3}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. Platform confirmed removal; confirmation screenshot attached as evidence."
+          />
+        </Field>
+      </div>
+    </Modal>
+  );
+};
+
+/* ------------------------------------------------------------------ *
  * Case detail / investigation workspace
  * ------------------------------------------------------------------ */
 
@@ -1934,6 +2072,7 @@ export const CaseDetailPage: React.FC = () => {
   const [assignOpen, setAssignOpen] = useState(false);
   const [escalateOpen, setEscalateOpen] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [responseOpen, setResponseOpen] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -2252,6 +2391,12 @@ export const CaseDetailPage: React.FC = () => {
                 },
               },
               {
+                label: data.response_outcome ? 'Update response outcome' : 'Record response outcome',
+                icon: <ShieldCheck className="h-4 w-4" />,
+                disabled: !perms.resolve,
+                onClick: () => setResponseOpen(true),
+              },
+              {
                 label: 'Delete case',
                 icon: <Trash2 className="h-4 w-4" />,
                 danger: true,
@@ -2510,6 +2655,13 @@ export const CaseDetailPage: React.FC = () => {
         onClose={() => setReopenOpen(false)}
         data={data}
         onReopened={(updated) => setData(updated)}
+      />
+
+      <ResponseOutcomeModal
+        open={responseOpen}
+        onClose={() => setResponseOpen(false)}
+        data={data}
+        onRecorded={(updated) => setData(updated)}
       />
 
       <AssignCaseModal

@@ -1383,6 +1383,59 @@ export const ThreatIntelPage: React.FC = () => {
               </p>
             </section>
 
+            {/* Detection record: where the observation came from and what it was compared to */}
+            {(detailItem?.entity.source_url ||
+              detailItem?.entity.first_seen_at ||
+              detailItem?.entity.last_seen_at ||
+              detailItem?.matched_official_asset_id) && (
+              <section>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-faint">Detection record</h3>
+                <dl className="mt-1.5 space-y-1 text-[13px]">
+                  {detailItem?.entity.source_url && (
+                    <div className="flex flex-wrap justify-between gap-x-6 gap-y-0.5 py-0.5">
+                      <dt className="text-faint">Source URL</dt>
+                      <dd className="min-w-0 max-w-[60%] truncate font-medium text-ink-700">
+                        <a
+                          href={detailItem.entity.source_url}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="hover:text-brand-600 hover:underline"
+                        >
+                          {detailItem.entity.source_url}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                  {detailItem?.entity.first_seen_at && (
+                    <div className="flex justify-between gap-x-6 py-0.5">
+                      <dt className="text-faint">First seen</dt>
+                      <dd className="font-medium text-ink-700">{formatDate(detailItem.entity.first_seen_at)}</dd>
+                    </div>
+                  )}
+                  {detailItem?.entity.last_seen_at && (
+                    <div className="flex justify-between gap-x-6 py-0.5">
+                      <dt className="text-faint">Last seen</dt>
+                      <dd className="font-medium text-ink-700">{formatDate(detailItem.entity.last_seen_at)}</dd>
+                    </div>
+                  )}
+                  {detailItem?.matched_official_asset_id && (
+                    <div className="flex flex-wrap justify-between gap-x-6 gap-y-0.5 py-0.5">
+                      <dt className="text-faint">Matched official asset</dt>
+                      <dd className="min-w-0 font-medium text-ink-700">
+                        <code
+                          title={detailItem.matched_official_asset_id}
+                          className="rounded bg-bg px-1.5 py-0.5 font-mono text-[12px]"
+                        >
+                          {detailItem.matched_official_asset_id.slice(0, 8)}…
+                        </code>{' '}
+                        <span className="text-faint">(registered brand reference)</span>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </section>
+            )}
+
             {/* Official vs. observed — side-by-side evidence */}
             <ComparisonTable signals={assessment.signals} />
 

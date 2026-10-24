@@ -147,6 +147,13 @@ export const RESOLUTION_OUTCOME_LABELS: Record<string, string> = {
   duplicate: 'Duplicate Case',
 };
 
+export const RESPONSE_OUTCOME_LABELS: Record<string, string> = {
+  no_action: 'No Action Taken',
+  report_drafted: 'Report Drafted',
+  report_submitted: 'Report Submitted',
+  removal_observed: 'Removal Observed',
+};
+
 export const EVIDENCE_KIND_LABELS: Record<string, string> = {
   screenshot: 'Screenshot',
   image: 'Image',

@@ -1,7 +1,7 @@
 # AnaRisk — API Reference
 
 Generated from the current FastAPI OpenAPI schema (`GET /openapi.json`, interactive docs at `/docs`).
-Base URL: `http://127.0.0.1:8000/api/v1` — **115 endpoints** across 19 tags.
+Base URL: `http://127.0.0.1:8000/api/v1` — **116 endpoints** across 19 tags.
 
 Authentication: `Authorization: Bearer <JWT>` (obtain via `POST /auth/login`).
 Role checks are enforced server-side per endpoint; unauthenticated requests return 401,
@@ -47,7 +47,7 @@ missing permissions return 403.
 | POST | `/api/v1/brands/{brand_id}/references/image` | Upload an official logo/image (validated by content; hashed with pHash) |
 | DELETE | `/api/v1/brands/{brand_id}/references/{reference_id}` | Delete Reference |
 
-## Cases & Response Workflow (15)
+## Cases & Response Workflow (16)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -56,7 +56,6 @@ missing permissions return 403.
 | GET | `/api/v1/cases/workflow` | Configured workflow transitions |
 | DELETE | `/api/v1/cases/{case_id}` | Delete a case (administrators only). Notes/events/links cascade; entities and evidence are kept |
 | GET | `/api/v1/cases/{case_id}` | Case detail: evidence, signals, linked entities, notes, status history, escalations |
-| GET | `/api/v1/cases/{case_id}/takedown-report` | Confirmed case only; returns an evidence-backed draft for analysts with `case:resolve`. Does not submit it. |
 | PATCH | `/api/v1/cases/{case_id}` | Edit title / summary / severity / platforms (case:triage). Send `version` for optimistic concurrency -> 409 on conflict |
 | POST | `/api/v1/cases/{case_id}/assign` | Assign or reassign the owner (UNDER_REVIEW -> ASSIGNED automatically) |
 | GET | `/api/v1/cases/{case_id}/assignments` | Assignments |
@@ -65,7 +64,9 @@ missing permissions return 403.
 | GET | `/api/v1/cases/{case_id}/graph` | Case sub-graph: the case's linked entities + relationships among them (composed server-side, brand-scoped) |
 | POST | `/api/v1/cases/{case_id}/notes` | Note |
 | POST | `/api/v1/cases/{case_id}/resolve` | Resolve with an outcome and summary |
+| POST | `/api/v1/cases/{case_id}/response-outcome` | Record the operational response (no action / report drafted / report submitted / removal observed). Removal requires verification evidence. |
 | POST | `/api/v1/cases/{case_id}/status` | Validated status transition (use expected_status to guard against duplicate/racing requests) |
+| GET | `/api/v1/cases/{case_id}/takedown-report` | Confirmed case only; returns an evidence-backed draft for analysts with `case:resolve`. Does not submit it. |
 
 ## Digital Surface Collection (2)
 

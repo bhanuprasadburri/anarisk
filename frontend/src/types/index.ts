@@ -34,6 +34,9 @@ export type ResolutionOutcome =
   | 'inconclusive'
   | 'duplicate';
 
+/** Round 2 §7: the operational response to a threat, tracked separately from the disposition. */
+export type ResponseOutcome = 'no_action' | 'report_drafted' | 'report_submitted' | 'removal_observed';
+
 export interface BrandReference {
   id: string;
   brand_id: string;
@@ -277,6 +280,10 @@ export interface InvestigationCase {
   resolution_outcome?: ResolutionOutcome | null;
   resolution_summary?: string | null;
   resolved_by?: CaseUserRef | null;
+  response_outcome?: ResponseOutcome | null;
+  response_outcome_at?: string | null;
+  response_outcome_by?: CaseUserRef | null;
+  response_evidence_id?: string | null;
   created_by?: CaseUserRef | null;
   entities?: CaseEntityDetail[];
   notes?: CaseNote[];
@@ -473,6 +480,9 @@ export interface DetectionItem {
     canonical_id: string;
     platform?: string | null;
     provenance: Provenance;
+    source_url?: string | null;
+    first_seen_at?: string | null;
+    last_seen_at?: string | null;
   };
   signal_type: SignalType;
   detection_type: string;
@@ -484,6 +494,8 @@ export interface DetectionItem {
   signals_summary: Array<{ signal_type: SignalType; status: SignalStatus; score: number | null }>;
   assessed_at: string;
   is_synthetic: boolean;
+  /** Registered brand reference this detection was compared against, when matched. */
+  matched_official_asset_id?: string | null;
 }
 
 export interface DetectionModelInfo {
